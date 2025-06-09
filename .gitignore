@@ -38,6 +38,8 @@ cache/
 *.log
 upgrade_logs.db
 src/database/
+.env
+.env.*
 
 # OS specific
 .DS_Store
