@@ -51,6 +51,14 @@ def process_webserver_data(webserver_file: str = 'data/raw/WebServer.csv',
         webserver_df.columns = webserver_df.columns.str.strip().str.replace('"', '')
         mapping_df.columns = mapping_df.columns.str.strip().str.replace('"', '')
         
+        # Convert ID columns to string type for consistent matching
+        id_columns = ['CATALOGID', 'INVNO', 'OSIINVNO']
+        for col in id_columns:
+            if col in webserver_df.columns:
+                webserver_df[col] = webserver_df[col].astype(str).apply(clean_text)
+            if col in mapping_df.columns:
+                mapping_df[col] = mapping_df[col].astype(str).apply(clean_text)
+        
         # Validate data
         validate_data(webserver_df)
         
@@ -65,6 +73,12 @@ def process_webserver_data(webserver_file: str = 'data/raw/WebServer.csv',
         mapping_df['INVNO'] = mapping_df['INVNO'].apply(clean_text)
         mapping_df['SWNAME'] = mapping_df['SWNAME'].apply(clean_text)
         
+        # Log the first few rows of both dataframes for debugging
+        logger.info("\nFirst few rows of webserver_df:")
+        logger.info(webserver_df[['CATALOGID', 'INVNO', 'OSIINVNO']].head())
+        logger.info("\nFirst few rows of mapping_df:")
+        logger.info(mapping_df[['CATALOGID', 'INVNO', 'SWNAME']].head())
+        
         # Map software installations
         # First, map by CATALOGID
         catalog_mapping = mapping_df.set_index('CATALOGID')['SWNAME'].to_dict()
@@ -74,11 +88,15 @@ def process_webserver_data(webserver_file: str = 'data/raw/WebServer.csv',
         invno_mapping = mapping_df.set_index('INVNO')['SWNAME'].to_dict()
         webserver_df['INVNO_SOFTWARE'] = webserver_df['INVNO'].map(invno_mapping)
         
-        # Finally, map by OSIINVNO
-        osiinvno_mapping = mapping_df.set_index('INVNO')['SWNAME'].to_dict()  # Using INVNO as key since OSIINVNO maps to INVNO
+        # Finally, map by OSIINVNO (using INVNO as key)
+        osiinvno_mapping = mapping_df.set_index('INVNO')['SWNAME'].to_dict()
         webserver_df['OSIINVNO_SOFTWARE'] = webserver_df['OSIINVNO'].map(osiinvno_mapping)
         
-        # Combine all software installations
+        # Log the mapping results for debugging
+        logger.info("\nMapping results for first few rows:")
+        logger.info(webserver_df[['CATALOGID', 'INVNO', 'OSIINVNO', 'INSTALLED_SOFTWARE', 'INVNO_SOFTWARE', 'OSIINVNO_SOFTWARE']].head())
+        
+        # Combine all software installations, excluding None and empty strings
         webserver_df['ALL_INSTALLED_SOFTWARE'] = webserver_df.apply(
             lambda row: list(filter(None, set([
                 row['INSTALLED_SOFTWARE'],
@@ -100,11 +118,18 @@ def process_webserver_data(webserver_file: str = 'data/raw/WebServer.csv',
         software_counts = {}
         for software_list in webserver_df['ALL_INSTALLED_SOFTWARE']:
             for software in software_list:
-                software_counts[software] = software_counts.get(software, 0) + 1
+                if software and not pd.isna(software):  # Only count non-empty, non-null values
+                    software_counts[software] = software_counts.get(software, 0) + 1
+        
+        # Calculate mapping coverage
+        total_mappings = len(webserver_df)
+        successful_mappings = sum(1 for x in webserver_df['ALL_INSTALLED_SOFTWARE'] if len(x) > 0)
+        mapping_coverage = (successful_mappings / total_mappings) * 100
         
         return {
             'total_records': len(webserver_df),
             'software_installation_counts': software_counts,
+            'mapping_coverage': mapping_coverage,
             'processing_time': processing_time
         }
         
@@ -119,8 +144,9 @@ if __name__ == "__main__":
         # Print statistics
         logger.info("\nData Summary:")
         logger.info(f"Total Records: {results['total_records']}")
+        logger.info(f"Mapping Coverage: {results['mapping_coverage']:.1f}%")
         logger.info("\nSoftware Installation Distribution:")
-        for software, count in results['software_installation_counts'].items():
+        for software, count in sorted(results['software_installation_counts'].items(), key=lambda x: x[1], reverse=True):
             logger.info(f"{software}: {count} installations")
         
     except Exception as e:
