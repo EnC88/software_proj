@@ -106,6 +106,10 @@ def process_webserver_data(webserver_file: str = 'data/raw/WebServer.csv',
             axis=1
         )
         
+        # Drop unnecessary columns
+        columns_to_keep = ['ASSETNAME', 'CATALOGID', 'INVNO', 'OSIINVNO', 'ALL_INSTALLED_SOFTWARE']
+        webserver_df = webserver_df[columns_to_keep]
+        
         # Save processed data
         webserver_df.to_csv(output_file, index=False)
         logger.info(f"Saved processed data to {output_file}")
