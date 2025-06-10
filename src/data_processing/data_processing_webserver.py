@@ -10,12 +10,10 @@ logger = logging.getLogger(__name__)
 
 def validate_data(df: pd.DataFrame) -> None:
     """Validate the input data structure and content."""
-    # Clean column names by removing spaces
-    df.columns = df.columns.str.strip()
+    # Clean column names by removing spaces and quotes
+    df.columns = df.columns.str.strip().str.replace('"', '')
     
-    required_columns = ['ASSETNAME', 'MANUFACTURER', 'MODEL', 'ENVIRONMENT', 
-                       'INSTALLPATH', 'INSTANCENAME', 'STATUS', 'SUBSTATUS', 
-                       'PRODUCTCLASS', 'PRODUCTTYPE']
+    required_columns = ['ASSETNAME', 'CATALOGID', 'INVNO', 'OSIINVNO']
     
     missing_columns = [col for col in required_columns if col not in df.columns]
     if missing_columns:
@@ -29,40 +27,69 @@ def clean_text(text: Any) -> str:
     if pd.isna(text):
         return ""
     try:
-        text = str(text).strip()
+        text = str(text).strip().replace('"', '')
         return text
     except Exception as e:
         logger.warning(f"Error cleaning text '{text}': {str(e)}")
         return str(text)
 
-def process_webserver_data(input_file: str = 'data/raw/WebServer.csv', 
+def process_webserver_data(webserver_file: str = 'data/raw/WebServer.csv',
+                         mapping_file: str = 'data/raw/swecomponentmapping.csv',
                          output_file: str = 'data/processed/WebServer_Merged.csv') -> Dict[str, Any]:
-    """Process web server data and return statistics."""
+    """Process web server data and map software installations."""
     start_time = time.time()
     logger.info("Starting web server data processing...")
     
     try:
         # Read data
-        df = pd.read_csv(input_file)
-        logger.info(f"Read {len(df)} records from {input_file}")
+        webserver_df = pd.read_csv(webserver_file)
+        mapping_df = pd.read_csv(mapping_file)
+        logger.info(f"Read {len(webserver_df)} records from {webserver_file}")
+        logger.info(f"Read {len(mapping_df)} records from {mapping_file}")
         
         # Clean column names
-        df.columns = df.columns.str.strip()
+        webserver_df.columns = webserver_df.columns.str.strip().str.replace('"', '')
+        mapping_df.columns = mapping_df.columns.str.strip().str.replace('"', '')
         
         # Validate data
-        validate_data(df)
+        validate_data(webserver_df)
         
         # Clean text fields
-        text_columns = ['ASSETNAME', 'MANUFACTURER', 'MODEL', 'ENVIRONMENT', 
-                       'INSTALLPATH', 'INSTANCENAME', 'STATUS', 'SUBSTATUS', 
-                       'PRODUCTCLASS', 'PRODUCTTYPE']
-        
+        text_columns = ['ASSETNAME', 'CATALOGID', 'INVNO', 'OSIINVNO']
         for col in text_columns:
-            if col in df.columns:
-                df[col] = df[col].apply(clean_text)
+            if col in webserver_df.columns:
+                webserver_df[col] = webserver_df[col].apply(clean_text)
+        
+        # Clean mapping data
+        mapping_df['CATALOGID'] = mapping_df['CATALOGID'].apply(clean_text)
+        mapping_df['INVNO'] = mapping_df['INVNO'].apply(clean_text)
+        mapping_df['SWNAME'] = mapping_df['SWNAME'].apply(clean_text)
+        
+        # Map software installations
+        # First, map by CATALOGID
+        catalog_mapping = mapping_df.set_index('CATALOGID')['SWNAME'].to_dict()
+        webserver_df['INSTALLED_SOFTWARE'] = webserver_df['CATALOGID'].map(catalog_mapping)
+        
+        # Then, map by INVNO
+        invno_mapping = mapping_df.set_index('INVNO')['SWNAME'].to_dict()
+        webserver_df['INVNO_SOFTWARE'] = webserver_df['INVNO'].map(invno_mapping)
+        
+        # Finally, map by OSIINVNO
+        osiinvno_mapping = mapping_df.set_index('INVNO')['SWNAME'].to_dict()  # Using INVNO as key since OSIINVNO maps to INVNO
+        webserver_df['OSIINVNO_SOFTWARE'] = webserver_df['OSIINVNO'].map(osiinvno_mapping)
+        
+        # Combine all software installations
+        webserver_df['ALL_INSTALLED_SOFTWARE'] = webserver_df.apply(
+            lambda row: list(filter(None, set([
+                row['INSTALLED_SOFTWARE'],
+                row['INVNO_SOFTWARE'],
+                row['OSIINVNO_SOFTWARE']
+            ]))),
+            axis=1
+        )
         
         # Save processed data
-        df.to_csv(output_file, index=False)
+        webserver_df.to_csv(output_file, index=False)
         logger.info(f"Saved processed data to {output_file}")
         
         # Calculate processing time
@@ -70,11 +97,14 @@ def process_webserver_data(input_file: str = 'data/raw/WebServer.csv',
         logger.info(f"Data processing completed in {processing_time:.2f} seconds")
         
         # Return statistics
+        software_counts = {}
+        for software_list in webserver_df['ALL_INSTALLED_SOFTWARE']:
+            for software in software_list:
+                software_counts[software] = software_counts.get(software, 0) + 1
+        
         return {
-            'total_records': len(df),
-            'environment_counts': df['ENVIRONMENT'].value_counts().to_dict(),
-            'manufacturer_counts': df['MANUFACTURER'].value_counts().to_dict(),
-            'product_class_counts': df['PRODUCTCLASS'].value_counts().to_dict(),
+            'total_records': len(webserver_df),
+            'software_installation_counts': software_counts,
             'processing_time': processing_time
         }
         
@@ -89,15 +119,9 @@ if __name__ == "__main__":
         # Print statistics
         logger.info("\nData Summary:")
         logger.info(f"Total Records: {results['total_records']}")
-        logger.info("\nEnvironment Distribution:")
-        for env, count in results['environment_counts'].items():
-            logger.info(f"{env}: {count}")
-        logger.info("\nManufacturer Distribution:")
-        for manufacturer, count in results['manufacturer_counts'].items():
-            logger.info(f"{manufacturer}: {count}")
-        logger.info("\nProduct Class Distribution:")
-        for product_class, count in results['product_class_counts'].items():
-            logger.info(f"{product_class}: {count}")
+        logger.info("\nSoftware Installation Distribution:")
+        for software, count in results['software_installation_counts'].items():
+            logger.info(f"{software}: {count} installations")
         
     except Exception as e:
         logger.error(f"Error in main execution: {str(e)}")
