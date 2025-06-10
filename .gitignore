@@ -43,4 +43,7 @@ src/database/
 
 # OS specific
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# Ignore the main data processing script
+src/data_processing.py 
