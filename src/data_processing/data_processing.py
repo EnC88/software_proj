@@ -7,27 +7,18 @@ from packaging import version
 import logging
 from typing import Dict, List, Any, Optional
 import time
-import os
-import sys
-from pathlib import Path
-
-# Add the src directory to the Python path
-src_path = str(Path(__file__).parent.parent.parent)
-if src_path not in sys.path:
-    sys.path.append(src_path)
-
-from src.data_processing.data_utils import (
-    DataValidationError,
-    DataProcessingError,
-    clean_text,
-    remove_empty_columns,
-    standardize_date,
-    parse_version
-)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+class DataValidationError(Exception):
+    """Custom exception for data validation errors."""
+    pass
+
+class DataProcessingError(Exception):
+    """Custom exception for data processing errors."""
+    pass
 
 def validate_input_data(df: pd.DataFrame) -> None:
     """Validate input data structure and content."""
@@ -51,6 +42,32 @@ def validate_input_data(df: pd.DataFrame) -> None:
     if null_counts.any():
         raise DataValidationError(f"Found null values in required columns:\n{null_counts[null_counts > 0]}")
 
+def clean_text(text: Any) -> str:
+    """Clean and standardize text values with improved error handling."""
+    if pd.isna(text):
+        return ""
+    try:
+        text = str(text).strip()
+        text = re.sub(r'\s+', ' ', text)
+        return text
+    except Exception as e:
+        logger.warning(f"Error cleaning text '{text}': {str(e)}")
+        return str(text)
+
+def remove_empty_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Remove empty columns and specific columns that are not needed."""
+    try:
+        df = df.replace("", np.nan)
+        df = df.dropna(axis=1, how="all")
+        
+        columns_to_drop = ["RELATEDOBJECTID", "VERUMIDENTIFIER", "ENTITLEMENTUSED"]
+        existing_columns = [col for col in columns_to_drop if col in df.columns]
+        if existing_columns:
+            df.drop(columns=existing_columns, inplace=True)
+        return df
+    except Exception as e:
+        raise DataProcessingError(f"Error removing empty columns: {str(e)}")
+
 def remove_duplicate_changes(df: pd.DataFrame) -> pd.DataFrame:
     """Remove duplicate changes for each user with improved performance."""
     try:
@@ -59,6 +76,40 @@ def remove_duplicate_changes(df: pd.DataFrame) -> pd.DataFrame:
         return df[~df['is_duplicate']].drop(columns=['is_duplicate'])
     except Exception as e:
         raise DataProcessingError(f"Error removing duplicate changes: {str(e)}")
+
+def standardize_date(date_str: Any) -> Optional[str]:
+    """Standardize date format across the dataset with improved error handling."""
+    if pd.isna(date_str):
+        return None
+    try:
+        date_str = str(date_str).strip()
+        date_str = re.sub(r'\s+', ' ', date_str)
+        date_str = re.sub(r'(\d{2})\.(\d{2})\.(\d{2})', r'\1:\2:\3', date_str)
+        date_str = re.sub(r'(:\d{2})\.(\d+)(?=\s*(AM|PM|UTC))', r'\1', date_str)
+        date_str = re.sub(r' UTC$', '', date_str)
+        date_obj = parser.parse(date_str)
+        return date_obj.strftime('%Y-%m-%d %H:%M:%S')
+    except Exception as e:
+        logger.warning(f"Error parsing date '{date_str}': {str(e)}")
+        return None
+
+def organize_user_and_time(df: pd.DataFrame) -> pd.DataFrame:
+    """Organize data by user and time with improved performance."""
+    try:
+        df.columns = df.columns.str.strip()
+        
+        # Use vectorized operations for better performance
+        df["NEWVALUE"] = df["NEWVALUE"].str.lower()
+        df["OLDVALUE"] = df["OLDVALUE"].str.lower()
+        
+        df["VERUMCREATEDDATE"] = df["VERUMCREATEDDATE"].apply(standardize_date)
+        df["VERUMCREATEDDATE"] = pd.to_datetime(df["VERUMCREATEDDATE"], errors="coerce")
+        
+        # Sort using numpy for better performance
+        sort_idx = np.lexsort((df["VERUMCREATEDDATE"].values, df["VERUMCREATEDBY"].values))
+        return df.iloc[sort_idx]
+    except Exception as e:
+        raise DataProcessingError(f"Error organizing user and time data: {str(e)}")
 
 def standardize_version(text: Any) -> str:
     """Standardize version numbers for different software types with improved error handling."""
@@ -95,23 +146,18 @@ def standardize_version(text: Any) -> str:
         logger.warning(f"Error standardizing version '{text}': {str(e)}")
         return str(text)
 
-def organize_user_and_time(df: pd.DataFrame) -> pd.DataFrame:
-    """Organize data by user and time with improved performance."""
+def parse_version(ver_str: Any) -> Optional[version.Version]:
+    """Parse version strings into comparable version objects with improved error handling."""
+    if pd.isna(ver_str) or ver_str == "":
+        return None
     try:
-        df.columns = df.columns.str.strip()
-        
-        # Use vectorized operations for better performance
-        df["NEWVALUE"] = df["NEWVALUE"].str.lower()
-        df["OLDVALUE"] = df["OLDVALUE"].str.lower()
-        
-        df["VERUMCREATEDDATE"] = df["VERUMCREATEDDATE"].apply(standardize_date)
-        df["VERUMCREATEDDATE"] = pd.to_datetime(df["VERUMCREATEDDATE"], errors="coerce")
-        
-        # Sort using numpy for better performance
-        sort_idx = np.lexsort((df["VERUMCREATEDDATE"].values, df["VERUMCREATEDBY"].values))
-        return df.iloc[sort_idx]
+        version_match = re.search(r'(\d+(?:\.\d+)*)', str(ver_str))
+        if version_match:
+            return version.parse(version_match.group(1))
+        return None
     except Exception as e:
-        raise DataProcessingError(f"Error organizing user and time data: {str(e)}")
+        logger.warning(f"Error parsing version '{ver_str}': {str(e)}")
+        return None
 
 def analyze_version_chains(df: pd.DataFrame) -> pd.DataFrame:
     """Analyze version upgrade chains and redundant logs with improved performance."""
@@ -164,17 +210,8 @@ def analyze_upgrade_patterns(df: pd.DataFrame) -> pd.DataFrame:
     except Exception as e:
         raise DataProcessingError(f"Error analyzing upgrade patterns: {str(e)}")
 
-def process_data(input_file: str = 'data/raw/rawdata.csv', output_file: str = 'data/processed/processed_data.csv') -> Dict[str, Any]:
+def process_data(input_file: str, output_file: str) -> Dict[str, Any]:
     """Main function to process the data through all cleaning and analysis steps."""
-    if not os.path.exists(input_file):
-        logger.info("No Verum data file found. Skipping processing.")
-        return {
-            'redundant_upgrades': pd.DataFrame(),
-            'clustered_upgrades': pd.DataFrame(),
-            'rollbacks': pd.DataFrame(),
-            'processing_time': 0
-        }
-
     start_time = time.time()
     logger.info("Starting data processing...")
     
@@ -187,7 +224,7 @@ def process_data(input_file: str = 'data/raw/rawdata.csv', output_file: str = 'd
         validate_input_data(df)
         
         # Basic cleaning
-        df = remove_empty_columns(df, ["RELATEDOBJECTID", "VERUMIDENTIFIER", "ENTITLEMENTUSED"])
+        df = remove_empty_columns(df)
         df = remove_duplicate_changes(df)
         logger.info(f"After cleaning: {len(df)} records")
         
@@ -212,24 +249,35 @@ def process_data(input_file: str = 'data/raw/rawdata.csv', output_file: str = 'd
             'redundant_upgrades': analyze_version_chains(df),
             'clustered_upgrades': df[df['IS_CLUSTERED_UPGRADE']],
             'rollbacks': df[df['IS_ROLLBACK']],
-            'processing_time': processing_time
+            'processing_time': processing_time,
+            'total_records': len(df)
         }
+        
+    except DataValidationError as e:
+        logger.error(f"Data validation error: {str(e)}")
+        raise
+    except DataProcessingError as e:
+        logger.error(f"Data processing error: {str(e)}")
+        raise
     except Exception as e:
-        logger.info("No Verum data to process.")
-        return {
-            'redundant_upgrades': pd.DataFrame(),
-            'clustered_upgrades': pd.DataFrame(),
-            'rollbacks': pd.DataFrame(),
-            'processing_time': 0
-        }
+        logger.error(f"Unexpected error during data processing: {str(e)}")
+        raise
 
-if __name__ == '__main__':
+if __name__ == "__main__":
+    input_file = "data/raw/rawdata.csv"
+    output_file = "data/processed/processed_data.csv"
+    
     try:
-        results = process_data()
-        if results['processing_time'] > 0:
-            logger.info("\nAnalysis Results:")
-            logger.info(f"Total records processed: {len(results['redundant_upgrades'])}")
-            logger.info(f"Processing time: {results['processing_time']:.2f} seconds")
-            logger.info(f"Number of redundant upgrades: {len(results['redundant_upgrades'])}")
+        results = process_data(input_file, output_file)
+        
+        # Print analysis results
+        logger.info("\nAnalysis Results:")
+        logger.info(f"Total records processed: {results['total_records']}")
+        logger.info(f"Processing time: {results['processing_time']:.2f} seconds")
+        logger.info(f"Number of redundant upgrades: {len(results['redundant_upgrades'])}")
+        logger.info(f"Number of clustered upgrades: {len(results['clustered_upgrades'])}")
+        logger.info(f"Number of rollbacks: {len(results['rollbacks'])}")
+        
     except Exception as e:
-        logger.info("No Verum data to process.")
+        logger.error(f"Error in main execution: {str(e)}")
+        raise
