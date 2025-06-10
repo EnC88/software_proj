@@ -1,25 +1,22 @@
 import pandas as pd
 import numpy as np
-from datetime import datetime
-import re
-from dateutil import parser
-from packaging import version
-import logging
-from typing import Dict, List, Any, Optional
 import time
 import os
+import re
+import logging
+from typing import Dict, List, Any, Optional
+from data_utils import (
+    DataValidationError,
+    DataProcessingError,
+    clean_text,
+    remove_empty_columns,
+    standardize_date,
+    parse_version
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-class DataValidationError(Exception):
-    """Custom exception for data validation errors."""
-    pass
-
-class DataProcessingError(Exception):
-    """Custom exception for data processing errors."""
-    pass
 
 RAW_DIR = 'data/raw'
 PROCESSED_DIR = 'data/processed'
@@ -64,32 +61,6 @@ def validate_input_data(df: pd.DataFrame) -> None:
     null_counts = df[required_columns].isnull().sum()
     if null_counts.any():
         raise DataValidationError(f"Found null values in required columns:\n{null_counts[null_counts > 0]}")
-
-def clean_text(text: Any) -> str:
-    """Clean and standardize text values with improved error handling."""
-    if pd.isna(text):
-        return ""
-    try:
-        text = str(text).strip()
-        text = re.sub(r'\s+', ' ', text)
-        return text
-    except Exception as e:
-        logger.warning(f"Error cleaning text '{text}': {str(e)}")
-        return str(text)
-
-def remove_empty_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """Remove empty columns and specific columns that are not needed."""
-    try:
-        df = df.replace("", np.nan)
-        df = df.dropna(axis=1, how="all")
-        
-        columns_to_drop = ["OSIINVNO", "VERUMIDENTIFIER", "LOAD_DT"]
-        existing_columns = [col for col in columns_to_drop if col in df.columns]
-        if existing_columns:
-            df.drop(columns=existing_columns, inplace=True)
-        return df
-    except Exception as e:
-        raise DataProcessingError(f"Error removing empty columns: {str(e)}")
 
 def standardize_version(text: Any) -> str:
     """Standardize version numbers for different software types with improved error handling."""
@@ -183,7 +154,7 @@ def process_data() -> Dict[str, Any]:
         validate_input_data(web_df)
         
         # Basic cleaning
-        web_df = remove_empty_columns(web_df)
+        web_df = remove_empty_columns(web_df, ["OSIINVNO", "VERUMIDENTIFIER", "LOAD_DT"])
         logger.info(f"After cleaning: {len(web_df)} records")
         
         # Merge data
