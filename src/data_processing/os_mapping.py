@@ -17,7 +17,7 @@ def _clean_text(text):
     """Clean text by removing special characters and converting to uppercase."""
     if pd.isna(text):
         return text
-    return str(text).strip().upper()
+    return str(text).strip().upper().replace('"', '')
 
 def _validate_data(df, required_columns):
     """Validate that required columns exist in the dataframe."""
@@ -63,7 +63,7 @@ def process_os_mapping():
         # Create a dictionary mapping INVNO to SWNAME
         invno_to_software = {}
         for _, row in mapping_df.iterrows():
-            invno = str(row['INVNO']).strip().replace('"', '')
+            invno = _clean_text(row['INVNO'])
             if invno not in invno_to_software:
                 invno_to_software[invno] = []
             invno_to_software[invno].append(_clean_text(row['SWNAME']))
@@ -75,11 +75,6 @@ def process_os_mapping():
         del mapping_df
         gc.collect()
         log_memory_usage()
-        
-        # Initialize counters and lists for chunk processing
-        total_webserver_records = 0
-        matched_records = []
-        chunk_size = 100000  # Increased chunk size for large files
         
         # Define columns to read from webserver
         webserver_columns = [
@@ -100,68 +95,38 @@ def process_os_mapping():
             'PRODUCTTYPE': str
         }
         
-        # Process webserver file in chunks
-        logger.info(f"Processing webserver file in chunks of {chunk_size} records...")
+        # Read the entire WebServer.csv file at once
+        logger.info("Reading WebServer.csv file...")
+        webserver_df = robust_read_csv('data/raw/WebServer.csv', dtype=dtype_dict)
         
-        try:
-            chunk_iterator = robust_read_csv('data/raw/WebServer.csv',
-                                       chunksize=chunk_size,
-                                       on_bad_lines='warn',
-                                       dtype=dtype_dict)
-            
-            for chunk_num, chunk in enumerate(chunk_iterator, 1):
-                try:
-                    chunk.columns = chunk.columns.str.strip().str.replace('"', '')
-                    
-                    # Convert all object/mixed type columns to string
-                    for col in chunk.select_dtypes(include=['object']).columns:
-                        chunk[col] = chunk[col].astype(str)
-                    
-                    # Clean text columns
-                    text_columns = ['ASSETNAME', 'ENVIRONMENT', 'STATUS', 'SUBSTATUS',
-                                  'MANUFACTURER', 'MODEL', 'PRODUCTCLASS', 'PRODUCTTYPE']
-                    for col in text_columns:
-                        if col in chunk.columns:
-                            chunk[col] = chunk[col].apply(_clean_text)
-                    
-                    # Keep all records that match any INVNO in the mapping
-                    matched_chunk = chunk[chunk['INVNO'].isin(all_invnos)].copy()
-                    
-                    # Add INSTALLED_SOFTWARE column with all matching software names
-                    matched_chunk['INSTALLED_SOFTWARE'] = matched_chunk['INVNO'].map(
-                        lambda x: invno_to_software.get(str(x).strip().replace('"', ''), [])
-                    )
-                    
-                    output_columns = [
-                        'ASSETNAME', 'INVNO', 'ENVIRONMENT', 'STATUS', 'SUBSTATUS',
-                        'MANUFACTURER', 'MODEL', 'PRODUCTCLASS', 'PRODUCTTYPE',
-                        'INSTALLED_SOFTWARE'
-                    ]
-                    matched_chunk = matched_chunk[output_columns]
-                    matched_records.append(matched_chunk)
-                    total_webserver_records += len(chunk)
-                    logger.info(f"Processed chunk {chunk_num}: {len(chunk)} records, found {len(matched_chunk)} matches")
-                    log_memory_usage()
-                    del chunk
-                    del matched_chunk
-                    gc.collect()
-                except Exception as e:
-                    logger.error(f"Error processing chunk {chunk_num}: {str(e)}")
-                    continue
+        # Clean column names
+        webserver_df.columns = webserver_df.columns.str.strip().str.replace('"', '')
         
-        except Exception as e:
-            logger.error(f"Error reading CSV file: {str(e)}")
-            raise
+        # Convert all object/mixed type columns to string
+        for col in webserver_df.select_dtypes(include=['object']).columns:
+            webserver_df[col] = webserver_df[col].astype(str)
         
-        # Combine all matched records
-        if not matched_records:
-            logger.warning("No matching records found!")
-            matched_df = pd.DataFrame(columns=output_columns)
-        else:
-            logger.info("Combining matched records...")
-            matched_df = pd.concat(matched_records, ignore_index=True)
-            del matched_records
-            gc.collect()
+        # Clean text columns
+        text_columns = ['ASSETNAME', 'ENVIRONMENT', 'STATUS', 'SUBSTATUS',
+                       'MANUFACTURER', 'MODEL', 'PRODUCTCLASS', 'PRODUCTTYPE']
+        for col in text_columns:
+            if col in webserver_df.columns:
+                webserver_df[col] = webserver_df[col].apply(_clean_text)
+        
+        # Keep all records that match any INVNO in the mapping
+        matched_df = webserver_df[webserver_df['INVNO'].apply(_clean_text).isin(all_invnos)].copy()
+        
+        # Add INSTALLED_SOFTWARE column with all matching software names
+        matched_df['INSTALLED_SOFTWARE'] = matched_df['INVNO'].apply(_clean_text).map(
+            lambda x: invno_to_software.get(x, [])
+        )
+        
+        output_columns = [
+            'ASSETNAME', 'INVNO', 'ENVIRONMENT', 'STATUS', 'SUBSTATUS',
+            'MANUFACTURER', 'MODEL', 'PRODUCTCLASS', 'PRODUCTTYPE',
+            'INSTALLED_SOFTWARE'
+        ]
+        matched_df = matched_df[output_columns]
         
         # Create output directory if it doesn't exist
         os.makedirs('data/processed', exist_ok=True)
@@ -178,7 +143,7 @@ def process_os_mapping():
         
         # Print summary statistics
         logger.info("\nData Summary:")
-        logger.info(f"Total Records in WebServer: {total_webserver_records:,}")
+        logger.info(f"Total Records in WebServer: {len(webserver_df):,}")
         logger.info(f"Total Unique INVNOs in Mapping: {len(all_invnos):,}")
         logger.info(f"Matched Records: {len(matched_df):,}")
         
@@ -199,7 +164,7 @@ def process_os_mapping():
             logger.info(f"{software}: {count:,} installations")
         
         return {
-            'total_webserver_records': total_webserver_records,
+            'total_webserver_records': len(webserver_df),
             'total_mapping_invnos': len(all_invnos),
             'matched_records': len(matched_df),
             'processing_time': processing_time.total_seconds()
