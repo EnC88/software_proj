@@ -43,7 +43,7 @@ def robust_read_csv(filepath, **kwargs):
         return df
 
 def process_os_mapping():
-    """Process WebServer data and match with component mapping based on INVNO."""
+    """Process WebServer data and match with component mapping based on OSIINVNO."""
     start_time = pd.Timestamp.now()
     logger.info("Starting OS mapping processing...")
     log_memory_usage()
@@ -60,73 +60,32 @@ def process_os_mapping():
         mapping_required = ['CATALOGID', 'SWNAME', 'INVNO']
         _validate_data(mapping_df, mapping_required)
         
-        # Create a dictionary mapping INVNO to SWNAME
-        invno_to_software = {}
-        for _, row in mapping_df.iterrows():
-            invno = _clean_text(row['INVNO'])
-            if invno not in invno_to_software:
-                invno_to_software[invno] = []
-            invno_to_software[invno].append(_clean_text(row['SWNAME']))
-        
-        # Get all unique INVNOs for matching
-        all_invnos = set(invno_to_software.keys())
+        # Create a set of INVNOs for quick lookup
+        invno_set = set(mapping_df['INVNO'].apply(_clean_text))
         
         # Clear mapping dataframe from memory
         del mapping_df
         gc.collect()
         log_memory_usage()
         
-        # Define columns to read from webserver
-        webserver_columns = [
-            'ASSETNAME', 'INVNO', 'ENVIRONMENT', 'STATUS', 'SUBSTATUS',
-            'MANUFACTURER', 'MODEL', 'PRODUCTCLASS', 'PRODUCTTYPE'
-        ]
-        
-        # Define data types for webserver columns
-        dtype_dict = {
-            'ASSETNAME': str,
-            'INVNO': str,
-            'ENVIRONMENT': str,
-            'STATUS': str,
-            'SUBSTATUS': str,
-            'MANUFACTURER': str,
-            'MODEL': str,
-            'PRODUCTCLASS': str,
-            'PRODUCTTYPE': str
-        }
-        
         # Read the entire WebServer.csv file at once
         logger.info("Reading WebServer.csv file...")
-        webserver_df = robust_read_csv('data/raw/WebServer.csv', dtype=dtype_dict)
+        webserver_df = robust_read_csv('data/raw/WebServer.csv')
         
         # Clean column names
         webserver_df.columns = webserver_df.columns.str.strip().str.replace('"', '')
         
-        # Convert all object/mixed type columns to string
-        for col in webserver_df.select_dtypes(include=['object']).columns:
-            webserver_df[col] = webserver_df[col].astype(str)
+        # Initialize a list to store matched records
+        matched_records = []
         
-        # Clean text columns
-        text_columns = ['ASSETNAME', 'ENVIRONMENT', 'STATUS', 'SUBSTATUS',
-                       'MANUFACTURER', 'MODEL', 'PRODUCTCLASS', 'PRODUCTTYPE']
-        for col in text_columns:
-            if col in webserver_df.columns:
-                webserver_df[col] = webserver_df[col].apply(_clean_text)
+        # Iterate through each row in WebServer.csv
+        for _, row in webserver_df.iterrows():
+            osiinvno = _clean_text(row['OSIINVNO'])
+            if osiinvno in invno_set:
+                matched_records.append(row)
         
-        # Keep all records that match any INVNO in the mapping
-        matched_df = webserver_df[webserver_df['INVNO'].apply(_clean_text).isin(all_invnos)].copy()
-        
-        # Add INSTALLED_SOFTWARE column with all matching software names
-        matched_df['INSTALLED_SOFTWARE'] = matched_df['INVNO'].apply(_clean_text).map(
-            lambda x: invno_to_software.get(x, [])
-        )
-        
-        output_columns = [
-            'ASSETNAME', 'INVNO', 'ENVIRONMENT', 'STATUS', 'SUBSTATUS',
-            'MANUFACTURER', 'MODEL', 'PRODUCTCLASS', 'PRODUCTTYPE',
-            'INSTALLED_SOFTWARE'
-        ]
-        matched_df = matched_df[output_columns]
+        # Create a DataFrame from matched records
+        matched_df = pd.DataFrame(matched_records)
         
         # Create output directory if it doesn't exist
         os.makedirs('data/processed', exist_ok=True)
@@ -144,28 +103,12 @@ def process_os_mapping():
         # Print summary statistics
         logger.info("\nData Summary:")
         logger.info(f"Total Records in WebServer: {len(webserver_df):,}")
-        logger.info(f"Total Unique INVNOs in Mapping: {len(all_invnos):,}")
+        logger.info(f"Total Unique INVNOs in Mapping: {len(invno_set):,}")
         logger.info(f"Matched Records: {len(matched_df):,}")
-        
-        # Count matches by environment
-        if 'ENVIRONMENT' in matched_df.columns:
-            env_counts = matched_df['ENVIRONMENT'].value_counts()
-            logger.info("\nMatched Records by Environment:")
-            for env, count in env_counts.items():
-                logger.info(f"{env}: {count:,} records")
-        
-        # Count unique software installations
-        all_software = []
-        for software_list in matched_df['INSTALLED_SOFTWARE']:
-            all_software.extend(software_list)
-        software_counts = pd.Series(all_software).value_counts()
-        logger.info("\nSoftware Installation Counts:")
-        for software, count in software_counts.items():
-            logger.info(f"{software}: {count:,} installations")
         
         return {
             'total_webserver_records': len(webserver_df),
-            'total_mapping_invnos': len(all_invnos),
+            'total_mapping_invnos': len(invno_set),
             'matched_records': len(matched_df),
             'processing_time': processing_time.total_seconds()
         }
