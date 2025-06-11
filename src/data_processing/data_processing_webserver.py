@@ -31,6 +31,18 @@ def log_memory_usage():
     memory_info = process.memory_info()
     logger.info(f"Memory usage: {memory_info.rss / 1024 / 1024:.2f} MB")
 
+def robust_read_csv(filepath, **kwargs):
+    """Try reading a CSV with utf-8, then fallback to latin1 if needed."""
+    try:
+        df = pd.read_csv(filepath, encoding='utf-8', **kwargs)
+        logger.info(f"Read {filepath} with utf-8 encoding.")
+        return df
+    except UnicodeDecodeError as e:
+        logger.warning(f"utf-8 decode error for {filepath}: {e}. Trying latin1 encoding...")
+        df = pd.read_csv(filepath, encoding='latin1', **kwargs)
+        logger.info(f"Read {filepath} with latin1 encoding.")
+        return df
+
 def process_software_catalog():
     """Process software catalog data and match with component mapping."""
     start_time = datetime.now()
@@ -40,9 +52,7 @@ def process_software_catalog():
     try:
         # Read mapping file (usually smaller, can be read at once)
         logger.info("Reading mapping file...")
-        mapping_df = pd.read_csv('data/raw/swecomponentmapping.csv', 
-                               encoding='utf-8',
-                               dtype={'CATALOGID': str})
+        mapping_df = robust_read_csv('data/raw/swecomponentmapping.csv', dtype={'CATALOGID': str})
         
         # Clean column names (remove quotes and spaces)
         mapping_df.columns = mapping_df.columns.str.strip().str.replace('"', '')
@@ -95,10 +105,7 @@ def process_software_catalog():
         
         # First, get the column names from the first chunk
         try:
-            first_chunk = pd.read_csv('data/raw/softwarecatalog.csv', 
-                                    nrows=1, 
-                                    encoding='utf-8',
-                                    on_bad_lines='warn')
+            first_chunk = robust_read_csv('data/raw/softwarecatalog.csv', nrows=1, on_bad_lines='warn')
             # Clean column names
             first_chunk.columns = first_chunk.columns.str.strip().str.replace('"', '')
             
@@ -111,9 +118,8 @@ def process_software_catalog():
         
         # Process the file in chunks with error handling
         try:
-            chunk_iterator = pd.read_csv('data/raw/softwarecatalog.csv',
+            chunk_iterator = robust_read_csv('data/raw/softwarecatalog.csv',
                                        chunksize=chunk_size,
-                                       encoding='utf-8',
                                        on_bad_lines='warn',
                                        dtype=dtype_dict)
             
