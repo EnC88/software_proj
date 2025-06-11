@@ -6,6 +6,7 @@ import os
 import sys
 import psutil
 import gc
+import warnings
 
 # Configure logging
 logging.basicConfig(
@@ -125,34 +126,25 @@ def process_software_catalog():
             
             for chunk_num, chunk in enumerate(chunk_iterator, 1):
                 try:
-                    # Clean column names
                     chunk.columns = chunk.columns.str.strip().str.replace('"', '')
-                    
-                    # Clean text fields
+                    # Convert all object/mixed type columns to string to avoid mixed type warnings
+                    for col in chunk.select_dtypes(include=['object']).columns:
+                        chunk[col] = chunk[col].astype(str)
                     text_columns = ['SOFTWARE', 'MANUFACTURER', 'EDITION', 'SWNMAME', 'STATUS', 
                                   'PRODUCTFAMILY', 'COMPONENT', 'PRODUCTCLASS', 'PRODUCTTYPE']
                     for col in text_columns:
                         if col in chunk.columns:
                             chunk[col] = chunk[col].apply(_clean_text)
-                    
-                    # Parse dates
+                    # Explicitly parse date columns with a specific format
                     chunk['LCCURRENTENDDATE'] = pd.to_datetime(chunk['LCCURRENTENDDATE'], errors='coerce')
                     chunk['LCCURRENTSTARTDATE'] = pd.to_datetime(chunk['LCCURRENTSTARTDATE'], errors='coerce')
-                    
-                    # Calculate days to expiry
                     today = pd.Timestamp(datetime.today().date())
                     chunk['DAYS_TO_EXPIRY'] = (chunk['LCCURRENTENDDATE'] - today).dt.days
                     chunk['LICENSE_STATUS'] = chunk['DAYS_TO_EXPIRY'].apply(
                         lambda x: 'Expired' if pd.isna(x) or x < 0 else ('Expiring Soon' if x < 30 else 'Valid')
                     )
-                    
-                    # Find matching records
                     matched_chunk = chunk[chunk['CATALOGID'].isin(matching_catalog_ids)].copy()
-                    
-                    # Add mapping information
                     matched_chunk['MAPPED_SOFTWARE'] = matched_chunk['CATALOGID'].map(mapping_dict)
-                    
-                    # Select output columns
                     output_columns = [
                         'CATALOGID', 'SOFTWARE', 'SWNMAME', 'EDITION', 'MANUFACTURER',
                         'PRODUCTFAMILY', 'COMPONENT', 'PRODUCTCLASS', 'PRODUCTTYPE',
@@ -161,20 +153,13 @@ def process_software_catalog():
                         'LICENSE_STATUS', 'STATUS', 'MAPPED_SOFTWARE'
                     ]
                     matched_chunk = matched_chunk[output_columns]
-                    
-                    # Append matched records
                     matched_records.append(matched_chunk)
                     total_catalog_records += len(chunk)
-                    
-                    # Log progress
                     logger.info(f"Processed chunk {chunk_num}: {len(chunk)} records, found {len(matched_chunk)} matches")
                     log_memory_usage()
-                    
-                    # Clear chunk from memory
                     del chunk
                     del matched_chunk
                     gc.collect()
-                    
                 except Exception as e:
                     logger.error(f"Error processing chunk {chunk_num}: {str(e)}")
                     continue
