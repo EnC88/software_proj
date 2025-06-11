@@ -28,65 +28,83 @@ def process_software_catalog():
     start_time = datetime.now()
     logger.info("Starting software catalog processing...")
     
-    # Read input files
-    catalog_df = pd.read_csv('data/raw/softwarecatalog.csv')
+    # Read mapping file (usually smaller, can be read at once)
     mapping_df = pd.read_csv('data/raw/swecomponentmapping.csv')
-    
-    # Clean column names
-    catalog_df.columns = catalog_df.columns.str.strip()
     mapping_df.columns = mapping_df.columns.str.strip().str.replace('"', '')
     
-    # Log the number of records read
-    logger.info(f"Read {len(catalog_df)} records from data/raw/softwarecatalog.csv")
-    logger.info(f"Read {len(mapping_df)} records from data/raw/swecomponentmapping.csv")
-    
-    # Validate required columns
-    catalog_required = ['CATALOGID', 'SOFTWARE', 'MANUFACTURER', 'LCCURRENTENDDATE', 
-                       'LCCURRENTSTARTDATE', 'EDITION', 'SWNMAME', 'STATUS']
+    # Validate mapping file columns
     mapping_required = ['CATALOGID', 'SWNAME', 'INVNO']
-    _validate_data(catalog_df, catalog_required)
     _validate_data(mapping_df, mapping_required)
     
-    # Clean text fields in catalog
-    text_columns = ['SOFTWARE', 'MANUFACTURER', 'EDITION', 'SWNMAME', 'STATUS', 
-                   'PRODUCTFAMILY', 'COMPONENT', 'PRODUCTCLASS', 'PRODUCTTYPE']
-    for col in text_columns:
-        if col in catalog_df.columns:
-            catalog_df[col] = catalog_df[col].apply(_clean_text)
+    # Create mapping dictionary
+    mapping_dict = dict(zip(mapping_df['CATALOGID'].astype(str), mapping_df['SWNAME'].apply(_clean_text)))
+    matching_catalog_ids = set(mapping_df['CATALOGID'].astype(str))
     
-    # Clean text fields in mapping
-    mapping_df['SWNAME'] = mapping_df['SWNAME'].apply(_clean_text)
+    # Initialize counters and lists for chunk processing
+    total_catalog_records = 0
+    matched_records = []
+    chunk_size = 10000  # Adjust this based on your memory constraints
     
-    # Convert CATALOGID to string in both dataframes for consistent matching
-    catalog_df['CATALOGID'] = catalog_df['CATALOGID'].astype(str)
-    mapping_df['CATALOGID'] = mapping_df['CATALOGID'].astype(str)
+    # Process catalog file in chunks
+    logger.info(f"Processing catalog file in chunks of {chunk_size} records...")
     
-    # Parse and standardize date columns
-    catalog_df['LCCURRENTENDDATE'] = pd.to_datetime(catalog_df['LCCURRENTENDDATE'], errors='coerce')
-    catalog_df['LCCURRENTSTARTDATE'] = pd.to_datetime(catalog_df['LCCURRENTSTARTDATE'], errors='coerce')
-    today = pd.Timestamp(datetime.today().date())
-    catalog_df['DAYS_TO_EXPIRY'] = (catalog_df['LCCURRENTENDDATE'] - today).dt.days
-    catalog_df['LICENSE_STATUS'] = catalog_df['DAYS_TO_EXPIRY'].apply(
-        lambda x: 'Expired' if pd.isna(x) or x < 0 else ('Expiring Soon' if x < 30 else 'Valid')
-    )
+    # First, get the column names from the first chunk
+    first_chunk = pd.read_csv('data/raw/softwarecatalog.csv', nrows=1)
+    catalog_required = ['CATALOGID', 'SOFTWARE', 'MANUFACTURER', 'LCCURRENTENDDATE', 
+                       'LCCURRENTSTARTDATE', 'EDITION', 'SWNMAME', 'STATUS']
+    _validate_data(first_chunk, catalog_required)
     
-    # Find matching records
-    matching_catalog_ids = set(mapping_df['CATALOGID'])
-    matched_df = catalog_df[catalog_df['CATALOGID'].isin(matching_catalog_ids)].copy()
+    # Process the file in chunks
+    for chunk in pd.read_csv('data/raw/softwarecatalog.csv', chunksize=chunk_size):
+        # Clean column names
+        chunk.columns = chunk.columns.str.strip()
+        
+        # Clean text fields
+        text_columns = ['SOFTWARE', 'MANUFACTURER', 'EDITION', 'SWNMAME', 'STATUS', 
+                       'PRODUCTFAMILY', 'COMPONENT', 'PRODUCTCLASS', 'PRODUCTTYPE']
+        for col in text_columns:
+            if col in chunk.columns:
+                chunk[col] = chunk[col].apply(_clean_text)
+        
+        # Convert CATALOGID to string
+        chunk['CATALOGID'] = chunk['CATALOGID'].astype(str)
+        
+        # Parse dates
+        chunk['LCCURRENTENDDATE'] = pd.to_datetime(chunk['LCCURRENTENDDATE'], errors='coerce')
+        chunk['LCCURRENTSTARTDATE'] = pd.to_datetime(chunk['LCCURRENTSTARTDATE'], errors='coerce')
+        
+        # Calculate days to expiry
+        today = pd.Timestamp(datetime.today().date())
+        chunk['DAYS_TO_EXPIRY'] = (chunk['LCCURRENTENDDATE'] - today).dt.days
+        chunk['LICENSE_STATUS'] = chunk['DAYS_TO_EXPIRY'].apply(
+            lambda x: 'Expired' if pd.isna(x) or x < 0 else ('Expiring Soon' if x < 30 else 'Valid')
+        )
+        
+        # Find matching records
+        matched_chunk = chunk[chunk['CATALOGID'].isin(matching_catalog_ids)].copy()
+        
+        # Add mapping information
+        matched_chunk['MAPPED_SOFTWARE'] = matched_chunk['CATALOGID'].map(mapping_dict)
+        
+        # Select output columns
+        output_columns = [
+            'CATALOGID', 'SOFTWARE', 'SWNMAME', 'EDITION', 'MANUFACTURER',
+            'PRODUCTFAMILY', 'COMPONENT', 'PRODUCTCLASS', 'PRODUCTTYPE',
+            'MAJORVERSION', 'MINORVERSION', 'VERSIONSERVICEPACK',
+            'LCCURRENTSTARTDATE', 'LCCURRENTENDDATE', 'DAYS_TO_EXPIRY',
+            'LICENSE_STATUS', 'STATUS', 'MAPPED_SOFTWARE'
+        ]
+        matched_chunk = matched_chunk[output_columns]
+        
+        # Append matched records
+        matched_records.append(matched_chunk)
+        total_catalog_records += len(chunk)
+        
+        # Log progress
+        logger.info(f"Processed {len(chunk)} records, found {len(matched_chunk)} matches")
     
-    # Add mapping information
-    mapping_dict = dict(zip(mapping_df['CATALOGID'], mapping_df['SWNAME']))
-    matched_df['MAPPED_SOFTWARE'] = matched_df['CATALOGID'].map(mapping_dict)
-    
-    # Select and reorder columns for output
-    output_columns = [
-        'CATALOGID', 'SOFTWARE', 'SWNMAME', 'EDITION', 'MANUFACTURER',
-        'PRODUCTFAMILY', 'COMPONENT', 'PRODUCTCLASS', 'PRODUCTTYPE',
-        'MAJORVERSION', 'MINORVERSION', 'VERSIONSERVICEPACK',
-        'LCCURRENTSTARTDATE', 'LCCURRENTENDDATE', 'DAYS_TO_EXPIRY',
-        'LICENSE_STATUS', 'STATUS', 'MAPPED_SOFTWARE'
-    ]
-    matched_df = matched_df[output_columns]
+    # Combine all matched records
+    matched_df = pd.concat(matched_records, ignore_index=True)
     
     # Create output directory if it doesn't exist
     os.makedirs('data/processed', exist_ok=True)
@@ -102,7 +120,7 @@ def process_software_catalog():
     
     # Print summary statistics
     logger.info("\nData Summary:")
-    logger.info(f"Total Records in Catalog: {len(catalog_df)}")
+    logger.info(f"Total Records in Catalog: {total_catalog_records}")
     logger.info(f"Total Records in Mapping: {len(mapping_df)}")
     logger.info(f"Matched Records: {len(matched_df)}")
     
@@ -121,7 +139,7 @@ def process_software_catalog():
             logger.info(f"{family}: {count} records")
     
     return {
-        'total_catalog_records': len(catalog_df),
+        'total_catalog_records': total_catalog_records,
         'total_mapping_records': len(mapping_df),
         'matched_records': len(matched_df),
         'license_status_distribution': status_counts.to_dict() if 'LICENSE_STATUS' in matched_df.columns else {},
