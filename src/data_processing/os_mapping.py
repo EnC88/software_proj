@@ -17,7 +17,10 @@ def _clean_text(text):
     """Clean text by removing special characters and converting to uppercase."""
     if pd.isna(text):
         return text
-    return str(text).strip().upper().replace('"', '')
+    cleaned_text = str(text).strip().upper().replace('"', '')
+    if '.' in cleaned_text:
+        cleaned_text = cleaned_text.split('.')[0]
+    return cleaned_text
 
 def _validate_data(df, required_columns):
     """Validate that required columns exist in the dataframe."""
@@ -62,6 +65,7 @@ def process_os_mapping():
         
         # Create a set of INVNOs for quick lookup
         invno_set = set(mapping_df['INVNO'].apply(_clean_text))
+        logger.info(f"Sample INVNOs in Mapping: {list(invno_set)[:5]}")
         
         # Clear mapping dataframe from memory
         del mapping_df
@@ -116,6 +120,27 @@ def process_os_mapping():
     except Exception as e:
         logger.error(f"Fatal error in processing: {str(e)}")
         raise
+
+def map_os_to_software(os_version):
+    """Map OS version to software name using the existing logic from process_os_mapping."""
+    # Read mapping file
+    mapping_df = robust_read_csv('data/raw/swecomponentmapping.csv', dtype={'CATALOGID': str, 'INVNO': str})
+    
+    # Clean column names
+    mapping_df.columns = mapping_df.columns.str.strip().str.replace('"', '')
+    
+    # Validate mapping file columns
+    mapping_required = ['CATALOGID', 'SWNAME', 'INVNO']
+    _validate_data(mapping_df, mapping_required)
+    
+    # Create a dictionary for quick lookup
+    invno_to_swname = dict(zip(mapping_df['INVNO'].apply(_clean_text), mapping_df['SWNAME']))
+    
+    # Clean the OS version for lookup
+    cleaned_os_version = _clean_text(os_version)
+    
+    # Return the software name if found, otherwise return None
+    return invno_to_swname.get(cleaned_os_version)
 
 if __name__ == '__main__':
     try:

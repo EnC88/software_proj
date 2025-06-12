@@ -1,12 +1,11 @@
 import pandas as pd
-import numpy as np
 import logging
-from datetime import datetime
+import time
 import os
-import sys
+from datetime import datetime
+import re
 import psutil
-import gc
-import warnings
+from os_mapping import process_os_mapping, map_os_to_software  # Import both functions
 
 # Configure logging
 logging.basicConfig(
@@ -16,206 +15,123 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 def _clean_text(text):
-    """Clean text by removing special characters and converting to uppercase."""
+    """Clean text by removing quotes and extra spaces."""
     if pd.isna(text):
         return text
-    return str(text).strip().upper()
+    return str(text).strip().replace('"', '').replace("'", '').strip()
 
-def _validate_data(df, required_columns):
-    """Validate that required columns exist in the dataframe."""
-    missing_columns = [col for col in required_columns if col not in df.columns]
-    if missing_columns:
-        raise ValueError(f"Input file is missing required columns: {missing_columns}")
-
-def log_memory_usage():
-    process = psutil.Process(os.getpid())
-    memory_info = process.memory_info()
-    logger.info(f"Memory usage: {memory_info.rss / 1024 / 1024:.2f} MB")
-
-def robust_read_csv(filepath, **kwargs):
-    """Try reading a CSV with utf-8, then fallback to latin1 if needed."""
+def _parse_date(date_str):
+    """Parse date string with better error handling."""
+    if pd.isna(date_str):
+        return None
+    date_str = _clean_text(date_str)
     try:
-        df = pd.read_csv(filepath, encoding='utf-8', **kwargs)
-        logger.info(f"Read {filepath} with utf-8 encoding.")
-        return df
-    except UnicodeDecodeError as e:
-        logger.warning(f"utf-8 decode error for {filepath}: {e}. Trying latin1 encoding...")
-        df = pd.read_csv(filepath, encoding='latin1', **kwargs)
-        logger.info(f"Read {filepath} with latin1 encoding.")
-        return df
+        # Try parsing with the expected format
+        return pd.to_datetime(date_str, format='%d-%b-%y %I.%M.%S.%f %p %Z')
+    except:
+        try:
+            # Try parsing with pandas' flexible parser
+            return pd.to_datetime(date_str)
+        except:
+            logger.warning(f"Could not parse date with any format: {date_str}")
+            return None
 
-def process_software_catalog():
-    """Process software catalog data and match with component mapping."""
-    start_time = datetime.now()
-    logger.info("Starting software catalog processing...")
-    log_memory_usage()
-    
+def _standardize_version(version_str):
+    """Standardize version numbers for better comparison."""
+    if pd.isna(version_str):
+        return version_str
+    version_str = str(version_str).strip()
+    # Extract version numbers (e.g., 9.0.95 from "APACHE TOMCAT 9.0.95")
+    match = re.search(r'(\d+(?:\.\d+)*)', version_str)
+    if match:
+        return match.group(1)
+    return version_str
+
+def process_webserver_os_mapping():
+    """Process and map webservers to operating systems using swecomponentmapping, webserver, and softwarecatalog data."""
+    start_time = time.time()
+    logger.info("Starting webserver-OS mapping processing...")
+    logger.info(f"Memory usage: {psutil.Process().memory_info().rss / 1024 / 1024:.2f} MB")
+
     try:
-        # Read mapping file (usually smaller, can be read at once)
-        logger.info("Reading mapping file...")
-        mapping_df = robust_read_csv('data/raw/swecomponentmapping.csv', dtype={'CATALOGID': str})
-        
-        # Clean column names (remove quotes and spaces)
+        # Use the existing function to process OS mapping
+        process_os_mapping()
+
+        # Read webserver data file
+        logger.info("\nReading webserver data file...")
+        webserver_path = os.path.join('data', 'raw', 'WebServer.csv')
+        webserver_df = pd.read_csv(
+            webserver_path,
+            encoding='utf-8',
+            quotechar='"',
+            skipinitialspace=True
+        )
+        logger.info(f"Read {webserver_path} with utf-8 encoding.")
+
+        # Clean column names
+        webserver_df.columns = webserver_df.columns.str.strip().str.replace('"', '')
+
+        # Log raw values for debugging
+        logger.info("\nRaw values in webserver_data.csv:")
+        logger.info(webserver_df.head())
+
+        # Prepare mapping from swecomponentmapping
+        mapping_df = pd.read_csv(os.path.join('data', 'raw', 'swecomponentmapping.csv'), encoding='utf-8', quotechar='"', skipinitialspace=True)
         mapping_df.columns = mapping_df.columns.str.strip().str.replace('"', '')
-        
-        # Validate mapping file columns
-        mapping_required = ['CATALOGID', 'SWNAME', 'INVNO']
-        _validate_data(mapping_df, mapping_required)
-        
-        # Create mapping dictionary with lists of SWNAMEs for each CATALOGID
-        mapping_dict = {}
-        for catalog_id, group in mapping_df.groupby('CATALOGID'):
-            mapping_dict[catalog_id] = list(group['SWNAME'].apply(_clean_text))
-        
-        matching_catalog_ids = set(mapping_df['CATALOGID'])
-        
-        # Clear mapping dataframe from memory
-        del mapping_df
-        gc.collect()
-        log_memory_usage()
-        
-        # Initialize counters and lists for chunk processing
-        total_catalog_records = 0
-        matched_records = []
-        chunk_size = 100000  # Increased chunk size for 2M+ records
-        
-        # Define columns to read from catalog
-        catalog_columns = [
-            'CATALOGID', 'SOFTWARE', 'MANUFACTURER', 'EDITION', 'SWNMAME', 'STATUS',
-            'PRODUCTFAMILY', 'COMPONENT', 'PRODUCTCLASS', 'PRODUCTTYPE',
-            'MAJORVERSION', 'MINORVERSION', 'VERSIONSERVICEPACK'
+        catalogid_to_swname = mapping_df.set_index('CATALOGID')['SWNAME'].to_dict()
+
+        # Prepare catalog data
+        catalog_df = pd.read_csv(os.path.join('data', 'raw', 'softwarecatalog.csv'), encoding='utf-8', quotechar='"', skipinitialspace=True)
+        catalog_df.columns = catalog_df.columns.str.strip().str.replace('"', '')
+
+        # Merge webserver with catalog
+        merged_df = pd.merge(webserver_df, catalog_df, on='CATALOGID', how='left', suffixes=('', '_CATALOG'))
+
+        # Add swname from mapping
+        merged_df['swname'] = merged_df['CATALOGID'].map(catalogid_to_swname)
+        # mapped_software is the same as swname
+        merged_df['mapped_software'] = merged_df['swname']
+
+        # Extract major/minor version from swname (or software if swname is missing)
+        def extract_major_minor(text):
+            if pd.isna(text):
+                return None, None
+            match = re.search(r'(\d+)\.(\d+)', str(text))
+            if match:
+                return match.group(1), match.group(2)
+            return None, None
+        merged_df[['majorversion', 'minorversion']] = merged_df.apply(
+            lambda row: pd.Series(extract_major_minor(row['swname'] if pd.notna(row['swname']) else row['SOFTWARE'])), axis=1)
+
+        # Select relevant columns
+        output_columns = [
+            'ASSETNAME', 'INSTANCENAME', 'CATALOGID', 'SOFTWARE', 'swname', 'EDITION', 'MANUFACTURER', 'PRODUCTFAMILY', 'PRODUCTCLASS', 'PRODUCTTYPE', 'ENVIRONMENT', 'STATUS', 'SUBSTATUS', 'INSTALLPATH', 'OSIINVNO', 'INVNO', 'LOAD_DT', 'majorversion', 'minorversion', 'VERSIONSERVICEPACK', 'mapped_software'
         ]
-        
-        # Define data types for catalog columns
-        dtype_dict = {
-            'CATALOGID': str,
-            'SOFTWARE': str,
-            'MANUFACTURER': str,
-            'EDITION': str,
-            'SWNMAME': str,
-            'STATUS': str,
-            'PRODUCTFAMILY': str,
-            'COMPONENT': str,
-            'PRODUCTCLASS': str,
-            'PRODUCTTYPE': str,
-            'MAJORVERSION': str,
-            'MINORVERSION': str,
-            'VERSIONSERVICEPACK': str
-        }
-        
-        # Process catalog file in chunks
-        logger.info(f"Processing catalog file in chunks of {chunk_size} records...")
-        
-        # First, get the column names from the first chunk
-        try:
-            first_chunk = robust_read_csv('data/raw/softwarecatalog.csv', nrows=1, on_bad_lines='warn')
-            # Clean column names
-            first_chunk.columns = first_chunk.columns.str.strip().str.replace('"', '')
-            
-            catalog_required = ['CATALOGID', 'SOFTWARE', 'MANUFACTURER', 'EDITION', 'SWNMAME', 'STATUS']
-            _validate_data(first_chunk, catalog_required)
-        except Exception as e:
-            logger.error(f"Error reading first chunk: {str(e)}")
-            raise
-        
-        # Process the file in chunks with error handling
-        try:
-            chunk_iterator = robust_read_csv('data/raw/softwarecatalog.csv',
-                                       chunksize=chunk_size,
-                                       on_bad_lines='warn',
-                                       dtype=dtype_dict)
-            
-            for chunk_num, chunk in enumerate(chunk_iterator, 1):
-                try:
-                    chunk.columns = chunk.columns.str.strip().str.replace('"', '')
-                    # Convert all object/mixed type columns to string to avoid mixed type warnings
-                    for col in chunk.select_dtypes(include=['object']).columns:
-                        chunk[col] = chunk[col].astype(str)
-                    text_columns = ['SOFTWARE', 'MANUFACTURER', 'EDITION', 'SWNMAME', 'STATUS', 
-                                  'PRODUCTFAMILY', 'COMPONENT', 'PRODUCTCLASS', 'PRODUCTTYPE']
-                    for col in text_columns:
-                        if col in chunk.columns:
-                            chunk[col] = chunk[col].apply(_clean_text)
-                    
-                    # Keep all records that match any CATALOGID in the mapping
-                    matched_chunk = chunk[chunk['CATALOGID'].isin(matching_catalog_ids)].copy()
-                    
-                    # Add MAPPED_SOFTWARE column with all matching software names
-                    matched_chunk['MAPPED_SOFTWARE'] = matched_chunk['CATALOGID'].map(mapping_dict)
-                    
-                    output_columns = [
-                        'CATALOGID', 'SOFTWARE', 'SWNMAME', 'EDITION', 'MANUFACTURER',
-                        'PRODUCTFAMILY', 'COMPONENT', 'PRODUCTCLASS', 'PRODUCTTYPE',
-                        'MAJORVERSION', 'MINORVERSION', 'VERSIONSERVICEPACK',
-                        'STATUS', 'MAPPED_SOFTWARE'
-                    ]
-                    matched_chunk = matched_chunk[output_columns]
-                    matched_records.append(matched_chunk)
-                    total_catalog_records += len(chunk)
-                    logger.info(f"Processed chunk {chunk_num}: {len(chunk)} records, found {len(matched_chunk)} matches")
-                    log_memory_usage()
-                    del chunk
-                    del matched_chunk
-                    gc.collect()
-                except Exception as e:
-                    logger.error(f"Error processing chunk {chunk_num}: {str(e)}")
-                    continue
-        
-        except Exception as e:
-            logger.error(f"Error reading CSV file: {str(e)}")
-            raise
-        
-        # Combine all matched records
-        if not matched_records:
-            logger.warning("No matching records found!")
-            matched_df = pd.DataFrame(columns=output_columns)
-        else:
-            logger.info("Combining matched records...")
-            matched_df = pd.concat(matched_records, ignore_index=True)
-            # Clear matched_records from memory
-            del matched_records
-            gc.collect()
-        
+        # Some columns may be missing, so filter to those present
+        output_columns = [col for col in output_columns if col in merged_df.columns]
+        final_df = merged_df[output_columns]
+
         # Create output directory if it doesn't exist
-        os.makedirs('data/processed', exist_ok=True)
+        os.makedirs(os.path.join('data', 'processed'), exist_ok=True)
+
+        # Save to CSV
+        output_path = os.path.join('data', 'processed', 'Webserver_OS_Mapping.csv')
+        logger.info(f"\nSaving {len(final_df)} records to {output_path}...")
+        final_df.to_csv(output_path, index=False, quoting=1)  # QUOTE_MINIMAL
+
+        # Log summary
+        end_time = time.time()
+        logger.info(f"Data processing completed in {end_time - start_time:.2f} seconds")
+        logger.info(f"Memory usage: {psutil.Process().memory_info().rss / 1024 / 1024:.2f} MB")
         
-        # Save processed data
-        output_file = 'data/processed/Software_Catalog_Matched.csv'
-        logger.info(f"Saving {len(matched_df)} records to {output_file}...")
-        matched_df.to_csv(output_file, index=False)
-        
-        # Calculate processing time
-        processing_time = datetime.now() - start_time
-        logger.info(f"Data processing completed in {processing_time.total_seconds():.2f} seconds")
-        log_memory_usage()
-        
-        # Print summary statistics
         logger.info("\nData Summary:")
-        logger.info(f"Total Records in Catalog: {total_catalog_records:,}")
-        logger.info(f"Total Records in Mapping: {len(matching_catalog_ids):,}")
-        logger.info(f"Matched Records: {len(matched_df):,}")
-        
-        # Count matches by product family
-        if 'PRODUCTFAMILY' in matched_df.columns:
-            family_counts = matched_df['PRODUCTFAMILY'].value_counts()
-            logger.info("\nMatched Records by Product Family:")
-            for family, count in family_counts.items():
-                logger.info(f"{family}: {count:,} records")
-        
-        return {
-            'total_catalog_records': total_catalog_records,
-            'total_mapping_records': len(matching_catalog_ids),
-            'matched_records': len(matched_df),
-            'processing_time': processing_time.total_seconds()
-        }
-    
+        logger.info(f"Total Records in Webserver Data: {len(webserver_df)}")
+        logger.info(f"Total Records in Software Catalog: {len(catalog_df)}")
+        logger.info(f"Total Records in Webserver-OS Mapping: {len(merged_df)}")
+
     except Exception as e:
-        logger.error(f"Fatal error in processing: {str(e)}")
+        logger.error(f"Error processing data: {str(e)}")
         raise
 
-if __name__ == '__main__':
-    try:
-        process_software_catalog()
-    except Exception as e:
-        logger.error(f"Script failed: {str(e)}")
-        sys.exit(1) 
+if __name__ == "__main__":
+    process_webserver_os_mapping() 
