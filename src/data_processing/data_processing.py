@@ -7,9 +7,18 @@ from packaging import version
 import logging
 from typing import Dict, List, Any, Optional
 import time
+import os
+import sys
+import psutil
+import gc
+import warnings
+import csv
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 class DataValidationError(Exception):
@@ -263,21 +272,183 @@ def process_data(input_file: str, output_file: str) -> Dict[str, Any]:
         logger.error(f"Unexpected error during data processing: {str(e)}")
         raise
 
-if __name__ == "__main__":
-    input_file = "data/raw/rawdata.csv"
-    output_file = "data/processed/processed_data.csv"
-    
+def _clean_text(text):
+    """Clean text by removing quotes and extra spaces."""
+    if pd.isna(text):
+        return text
+    return str(text).strip().replace('"', '').replace("'", '').strip()
+
+def _parse_date(date_str):
+    """Parse date string with better error handling."""
+    if pd.isna(date_str):
+        return None
+    date_str = _clean_text(date_str)
     try:
-        results = process_data(input_file, output_file)
+        # Try parsing with the expected format
+        return pd.to_datetime(date_str, format='%d-%b-%y %I.%M.%S.%f %p %Z')
+    except:
+        try:
+            # Try parsing with pandas' flexible parser
+            return pd.to_datetime(date_str)
+        except:
+            logger.warning(f"Could not parse date with any format: {date_str}")
+            return None
+
+def _standardize_version(version_str):
+    """Standardize version numbers for better comparison."""
+    if pd.isna(version_str):
+        return version_str
+    version_str = str(version_str).strip()
+    # Extract version numbers (e.g., 9.0.95 from "APACHE TOMCAT 9.0.95")
+    match = re.search(r'(\d+(?:\.\d+)*)', version_str)
+    if match:
+        return match.group(1)
+    return version_str
+
+def _find_catalogid_for_model(model_str, mapping_df):
+    """Try to find the corresponding CATALOGID for a MODEL string."""
+    if pd.isna(model_str):
+        return None
+    model_str = _clean_text(model_str)
+    # Try to match the model string with SWNAME in the mapping
+    matches = mapping_df[mapping_df['SWNAME'].str.contains(model_str, case=False, na=False)]
+    if not matches.empty:
+        return matches.iloc[0]['CATALOGID']
+    return None
+
+def process_sor_history():
+    """Process SOR history data and save to CSV."""
+    start_time = time.time()
+    logger.info("Starting SOR history processing...")
+    logger.info(f"Memory usage: {psutil.Process().memory_info().rss / 1024 / 1024:.2f} MB")
+
+    try:
+        # Read SOR history file with proper CSV parameters
+        logger.info("Reading SOR history file...")
+        sor_hist_path = os.path.join('data', 'raw', 'sor_hist.csv')
+        sor_hist_df = pd.read_csv(
+            sor_hist_path,
+            encoding='utf-8',
+            quotechar='"',
+            skipinitialspace=True,
+            on_bad_lines='warn'
+        )
+        logger.info(f"Read {sor_hist_path} with utf-8 encoding.")
+
+        # Clean column names
+        sor_hist_df.columns = sor_hist_df.columns.str.strip().str.replace('"', '')
+
+        # Log raw values for debugging
+        logger.info("\nRaw values in sor_hist.csv:")
+        logger.info(sor_hist_df[['ATTRIBUTENAME', 'OLDVALUE', 'NEWVALUE', 'VERUMCREATEDDATE']].head())
+
+        # Read mapping file
+        logger.info("\nReading swecomponentmapping file...")
+        mapping_path = os.path.join('data', 'raw', 'swecomponentmapping.csv')
+        mapping_df = pd.read_csv(
+            mapping_path,
+            encoding='utf-8',
+            quotechar='"',
+            skipinitialspace=True
+        )
+        logger.info(f"Read {mapping_path} with utf-8 encoding.")
+
+        # Clean and standardize mapping data
+        mapping_df.columns = mapping_df.columns.str.strip().str.replace('"', '')
+        mapping_df['CATALOGID'] = mapping_df['CATALOGID'].apply(_clean_text)
+        mapping_df['SWNAME'] = mapping_df['SWNAME'].apply(_clean_text)
+
+        # Log mapping file contents for debugging
+        logger.info("\nMapping file contents:")
+        logger.info(mapping_df[['CATALOGID', 'SWNAME']].head())
+
+        # Create catalogid to swname mapping
+        catalogid_to_swname = dict(zip(mapping_df['CATALOGID'], mapping_df['SWNAME']))
+        logger.info("\nCATALOGID to SWNAME mapping:")
+        for cat_id, sw_name in catalogid_to_swname.items():
+            logger.info(f"{cat_id} -> {sw_name}")
+
+        # Clean and standardize SOR history data
+        sor_hist_df['ATTRIBUTENAME'] = sor_hist_df['ATTRIBUTENAME'].apply(_clean_text)
+        sor_hist_df['OLDVALUE'] = sor_hist_df['OLDVALUE'].apply(_clean_text)
+        sor_hist_df['NEWVALUE'] = sor_hist_df['NEWVALUE'].apply(_clean_text)
+        sor_hist_df['VERUMCREATEDDATE'] = sor_hist_df['VERUMCREATEDDATE'].apply(_parse_date)
+
+        # Create a copy of the dataframe for all changes
+        all_changes = sor_hist_df.copy()
+
+        # Add columns for version tracking
+        all_changes['CHANGE_TYPE'] = all_changes['ATTRIBUTENAME']
+        all_changes['IS_VERSION_CHANGE'] = all_changes['ATTRIBUTENAME'].isin(['CATALOGID', 'MODEL'])
+        all_changes['OLD_VERSION'] = ''
+        all_changes['NEW_VERSION'] = ''
+        all_changes['OLD_CATALOGID'] = ''
+        all_changes['NEW_CATALOGID'] = ''
+        all_changes['OLD_SWNAME'] = ''
+        all_changes['NEW_SWNAME'] = ''
+
+        # Process CATALOGID changes
+        catalogid_mask = all_changes['ATTRIBUTENAME'] == 'CATALOGID'
+        all_changes.loc[catalogid_mask, 'OLD_CATALOGID'] = all_changes.loc[catalogid_mask, 'OLDVALUE']
+        all_changes.loc[catalogid_mask, 'NEW_CATALOGID'] = all_changes.loc[catalogid_mask, 'NEWVALUE']
+        all_changes.loc[catalogid_mask, 'OLD_SWNAME'] = all_changes.loc[catalogid_mask, 'OLDVALUE'].map(catalogid_to_swname)
+        all_changes.loc[catalogid_mask, 'NEW_SWNAME'] = all_changes.loc[catalogid_mask, 'NEWVALUE'].map(catalogid_to_swname)
+        all_changes.loc[catalogid_mask, 'OLD_VERSION'] = all_changes.loc[catalogid_mask, 'OLD_SWNAME'].apply(_standardize_version)
+        all_changes.loc[catalogid_mask, 'NEW_VERSION'] = all_changes.loc[catalogid_mask, 'NEW_SWNAME'].apply(_standardize_version)
+
+        # Process MODEL changes
+        model_mask = all_changes['ATTRIBUTENAME'] == 'MODEL'
+        all_changes.loc[model_mask, 'OLD_VERSION'] = all_changes.loc[model_mask, 'OLDVALUE'].apply(_standardize_version)
+        all_changes.loc[model_mask, 'NEW_VERSION'] = all_changes.loc[model_mask, 'NEWVALUE'].apply(_standardize_version)
         
-        # Print analysis results
-        logger.info("\nAnalysis Results:")
-        logger.info(f"Total records processed: {results['total_records']}")
-        logger.info(f"Processing time: {results['processing_time']:.2f} seconds")
-        logger.info(f"Number of redundant upgrades: {len(results['redundant_upgrades'])}")
-        logger.info(f"Number of clustered upgrades: {len(results['clustered_upgrades'])}")
-        logger.info(f"Number of rollbacks: {len(results['rollbacks'])}")
+        # Try to find corresponding CATALOGIDs for MODEL changes
+        all_changes.loc[model_mask, 'OLD_CATALOGID'] = all_changes.loc[model_mask, 'OLDVALUE'].apply(
+            lambda x: _find_catalogid_for_model(x, mapping_df))
+        all_changes.loc[model_mask, 'NEW_CATALOGID'] = all_changes.loc[model_mask, 'NEWVALUE'].apply(
+            lambda x: _find_catalogid_for_model(x, mapping_df))
         
+        # Map found CATALOGIDs to SWNAMEs
+        all_changes.loc[model_mask, 'OLD_SWNAME'] = all_changes.loc[model_mask, 'OLD_CATALOGID'].map(catalogid_to_swname)
+        all_changes.loc[model_mask, 'NEW_SWNAME'] = all_changes.loc[model_mask, 'NEW_CATALOGID'].map(catalogid_to_swname)
+
+        # Sort by date
+        all_changes = all_changes.sort_values('VERUMCREATEDDATE')
+
+        # Create output directory if it doesn't exist
+        os.makedirs(os.path.join('data', 'processed'), exist_ok=True)
+
+        # Save to CSV
+        output_path = os.path.join('data', 'processed', 'Change_History.csv')
+        logger.info(f"\nSaving {len(all_changes)} records to {output_path}...")
+        all_changes.to_csv(output_path, index=False, quoting=1)  # QUOTE_MINIMAL
+
+        # Log summary
+        end_time = time.time()
+        logger.info(f"Data processing completed in {end_time - start_time:.2f} seconds")
+        logger.info(f"Memory usage: {psutil.Process().memory_info().rss / 1024 / 1024:.2f} MB")
+        
+        logger.info("\nData Summary:")
+        logger.info(f"Total Records in SOR History: {len(sor_hist_df)}")
+        logger.info(f"Total Changes: {len(all_changes)}")
+        logger.info(f"Version Changes (CATALOGID + MODEL): {len(all_changes[all_changes['IS_VERSION_CHANGE']])}")
+        logger.info(f"CATALOGID Changes: {len(all_changes[catalogid_mask])}")
+        logger.info(f"MODEL Changes: {len(all_changes[model_mask])}")
+        
+        logger.info("\nSample Changes:")
+        for _, row in all_changes.iterrows():
+            logger.info(f"\nObject ID: {row['OBJECTID']}")
+            logger.info(f"Object Name: {row['OBJECTNAME']}")
+            logger.info(f"Change Type: {row['CHANGE_TYPE']}")
+            if row['IS_VERSION_CHANGE']:
+                logger.info(f"Changed from {row['OLD_VERSION']} to {row['NEW_VERSION']} on {row['VERUMCREATEDDATE']}")
+                if not pd.isna(row['OLD_CATALOGID']) and not pd.isna(row['NEW_CATALOGID']):
+                    logger.info(f"Catalog IDs: {row['OLD_CATALOGID']} -> {row['NEW_CATALOGID']}")
+                if not pd.isna(row['OLD_SWNAME']) and not pd.isna(row['NEW_SWNAME']):
+                    logger.info(f"Software Names: {row['OLD_SWNAME']} -> {row['NEW_SWNAME']}")
+
     except Exception as e:
-        logger.error(f"Error in main execution: {str(e)}")
+        logger.error(f"Error processing data: {str(e)}")
         raise
+
+if __name__ == "__main__":
+    process_sor_history()
