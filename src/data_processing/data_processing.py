@@ -305,17 +305,6 @@ def _standardize_version(version_str):
         return match.group(1)
     return version_str
 
-def _find_catalogid_for_model(model_str, mapping_df):
-    """Try to find the corresponding CATALOGID for a MODEL string."""
-    if pd.isna(model_str):
-        return None
-    model_str = _clean_text(model_str)
-    # Try to match the model string with SWNAME in the mapping
-    matches = mapping_df[mapping_df['SWNAME'].str.contains(model_str, case=False, na=False)]
-    if not matches.empty:
-        return matches.iloc[0]['CATALOGID']
-    return None
-
 def process_sor_history():
     """Process SOR history data and save to CSV."""
     start_time = time.time()
@@ -364,10 +353,6 @@ def process_sor_history():
 
         # Create catalogid to swname mapping
         catalogid_to_swname = dict(zip(mapping_df['CATALOGID'], mapping_df['SWNAME']))
-        logger.info("\nCATALOGID to SWNAME mapping:")
-        for cat_id, sw_name in catalogid_to_swname.items():
-            logger.info(f"{cat_id} -> {sw_name}")
-
         # Clean and standardize SOR history data
         sor_hist_df['ATTRIBUTENAME'] = sor_hist_df['ATTRIBUTENAME'].apply(_clean_text)
         sor_hist_df['OLDVALUE'] = sor_hist_df['OLDVALUE'].apply(_clean_text)
@@ -395,24 +380,11 @@ def process_sor_history():
         all_changes.loc[catalogid_mask, 'NEW_SWNAME'] = all_changes.loc[catalogid_mask, 'NEWVALUE'].map(catalogid_to_swname)
         all_changes.loc[catalogid_mask, 'OLD_VERSION'] = all_changes.loc[catalogid_mask, 'OLD_SWNAME'].apply(_standardize_version)
         all_changes.loc[catalogid_mask, 'NEW_VERSION'] = all_changes.loc[catalogid_mask, 'NEW_SWNAME'].apply(_standardize_version)
-
-        # Process MODEL changes
-        model_mask = all_changes['ATTRIBUTENAME'] == 'MODEL'
-        all_changes.loc[model_mask, 'OLD_VERSION'] = all_changes.loc[model_mask, 'OLDVALUE'].apply(_standardize_version)
-        all_changes.loc[model_mask, 'NEW_VERSION'] = all_changes.loc[model_mask, 'NEWVALUE'].apply(_standardize_version)
-        
-        # Try to find corresponding CATALOGIDs for MODEL changes
-        all_changes.loc[model_mask, 'OLD_CATALOGID'] = all_changes.loc[model_mask, 'OLDVALUE'].apply(
-            lambda x: _find_catalogid_for_model(x, mapping_df))
-        all_changes.loc[model_mask, 'NEW_CATALOGID'] = all_changes.loc[model_mask, 'NEWVALUE'].apply(
-            lambda x: _find_catalogid_for_model(x, mapping_df))
-        
-        # Map found CATALOGIDs to SWNAMEs
-        all_changes.loc[model_mask, 'OLD_SWNAME'] = all_changes.loc[model_mask, 'OLD_CATALOGID'].map(catalogid_to_swname)
-        all_changes.loc[model_mask, 'NEW_SWNAME'] = all_changes.loc[model_mask, 'NEW_CATALOGID'].map(catalogid_to_swname)
-
         # Sort by date
         all_changes = all_changes.sort_values('VERUMCREATEDDATE')
+
+        # In process_sor_history(), after creating all_changes, add a new column for installation tracking
+        all_changes['IS_INSTALLATION'] = (all_changes['OLDVALUE'].isna() | (all_changes['OLDVALUE'] == '')) & (~all_changes['NEWVALUE'].isna() & (all_changes['NEWVALUE'] != ''))
 
         # Create output directory if it doesn't exist
         os.makedirs(os.path.join('data', 'processed'), exist_ok=True)
@@ -432,19 +404,7 @@ def process_sor_history():
         logger.info(f"Total Changes: {len(all_changes)}")
         logger.info(f"Version Changes (CATALOGID + MODEL): {len(all_changes[all_changes['IS_VERSION_CHANGE']])}")
         logger.info(f"CATALOGID Changes: {len(all_changes[catalogid_mask])}")
-        logger.info(f"MODEL Changes: {len(all_changes[model_mask])}")
-        
-        logger.info("\nSample Changes:")
-        for _, row in all_changes.iterrows():
-            logger.info(f"\nObject ID: {row['OBJECTID']}")
-            logger.info(f"Object Name: {row['OBJECTNAME']}")
-            logger.info(f"Change Type: {row['CHANGE_TYPE']}")
-            if row['IS_VERSION_CHANGE']:
-                logger.info(f"Changed from {row['OLD_VERSION']} to {row['NEW_VERSION']} on {row['VERUMCREATEDDATE']}")
-                if not pd.isna(row['OLD_CATALOGID']) and not pd.isna(row['NEW_CATALOGID']):
-                    logger.info(f"Catalog IDs: {row['OLD_CATALOGID']} -> {row['NEW_CATALOGID']}")
-                if not pd.isna(row['OLD_SWNAME']) and not pd.isna(row['NEW_SWNAME']):
-                    logger.info(f"Software Names: {row['OLD_SWNAME']} -> {row['NEW_SWNAME']}")
+        logger.info(f"Installation Changes: {len(all_changes[all_changes['IS_INSTALLATION']])}")
 
     except Exception as e:
         logger.error(f"Error processing data: {str(e)}")

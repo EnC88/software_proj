@@ -1,51 +1,51 @@
-ASSETNAME,CATALOGID,ENVIRONMENT,INSTALLPATH,MODEL,OSIINVNO,INVNO,MAPPED_SOFTWARE,OS_NAME
-WEBSRV01,1001,DEV,/OPT/TOMCAT,APACHE TOMCAT 9.0,3001,2001,"""APACHE TOMCAT 9.0""",
-WEBSRV02,1002,PROD,/OPT/HTTPD,APACHE HTTPD 2.4,3002,2002,"""APACHE HTTPD 2.4""",
-WEBSRV03,1003,UAT,/OPT/WEBSPHERE,WEBSPHERE 8.5,3003,2003,"""WEBSPHERE 8.5""",
-WEBSRV04,1004,DEV,/OPT/NGINX,NGINX 1.18,3004,2004,"""NGINX 1.18""",
-WEBSRV05,1005,PROD,/OPT/TOMCAT,APACHE TOMCAT 9.0,3005,2005,"""APACHE TOMCAT 9.0""",
-WEBSRV06,1006,DEV,/OPT/HTTPD,APACHE HTTPD 2.4,3006,2006,"""APACHE HTTPD 2.4""",
-WEBSRV07,1007,UAT,/OPT/WEBSPHERE,WEBSPHERE 8.5,3007,2007,"""WEBSPHERE 8.5""",
-WEBSRV08,1008,PROD,/OPT/NGINX,NGINX 1.18,3008,2008,"""NGINX 1.18""",
-WEBSRV09,1009,DEV,/OPT/TOMCAT,APACHE TOMCAT 9.0,3009,2009,"""APACHE TOMCAT 9.0""",
-WEBSRV10,1010,PROD,/OPT/HTTPD,APACHE HTTPD 2.4,3010,2010,"""APACHE HTTPD 2.4""",
-WEBSRV11,1011,UAT,/OPT/WEBSPHERE,WEBSPHERE 8.5,3011,2011,"""WEBSPHERE 8.5""",
-WEBSRV12,1012,DEV,/OPT/NGINX,NGINX 1.18,3012,2012,"""NGINX 1.18""",
-WEBSRV13,1013,PROD,/OPT/TOMCAT,APACHE TOMCAT 9.0,3013,2013,"""APACHE TOMCAT 9.0""",
-WEBSRV14,1014,DEV,/OPT/HTTPD,APACHE HTTPD 2.4,3014,2014,"""APACHE HTTPD 2.4""",
-WEBSRV15,1015,UAT,/OPT/WEBSPHERE,WEBSPHERE 8.5,3015,2015,"""WEBSPHERE 8.5""",
-WEBSRV16,1016,PROD,/OPT/NGINX,NGINX 1.18,3016,2016,"""NGINX 1.18""",
-WEBSRV17,1017,DEV,/OPT/TOMCAT,APACHE TOMCAT 9.0,3017,2017,"""APACHE TOMCAT 9.0""",
-WEBSRV18,1018,PROD,/OPT/HTTPD,APACHE HTTPD 2.4,3018,2018,"""APACHE HTTPD 2.4""",
-WEBSRV19,1019,UAT,/OPT/WEBSPHERE,WEBSPHERE 8.5,3019,2019,"""WEBSPHERE 8.5""",
-WEBSRV20,1020,DEV,/OPT/NGINX,NGINX 1.18,3020,2020,"""NGINX 1.18""",
-WEBSRV21,1021,PROD,/OPT/TOMCAT,APACHE TOMCAT 9.0,3021,2021,"""APACHE TOMCAT 9.0""",
-WEBSRV22,1022,DEV,/OPT/HTTPD,APACHE HTTPD 2.4,3022,2022,"""APACHE HTTPD 2.4""",
-WEBSRV23,1023,UAT,/OPT/WEBSPHERE,WEBSPHERE 8.5,3023,2023,"""WEBSPHERE 8.5""",
-WEBSRV24,1024,PROD,/OPT/NGINX,NGINX 1.18,3024,2024,"""NGINX 1.18""",
-WEBSRV25,1025,DEV,/OPT/TOMCAT,APACHE TOMCAT 9.0,3025,2025,"""APACHE TOMCAT 9.0""",
-WEBSRV26,1026,PROD,/OPT/HTTPD,APACHE HTTPD 2.4,3026,2026,"""APACHE HTTPD 2.4""",
-WEBSRV27,1027,UAT,/OPT/WEBSPHERE,WEBSPHERE 8.5,3027,2027,"""WEBSPHERE 8.5""",
-WEBSRV28,1028,DEV,/OPT/NGINX,NGINX 1.18,3028,2028,"""NGINX 1.18""",
-WEBSRV29,1029,PROD,/OPT/TOMCAT,APACHE TOMCAT 9.0,3029,2029,"""APACHE TOMCAT 9.0""",
-WEBSRV30,1030,DEV,/OPT/HTTPD,APACHE HTTPD 2.4,3030,2030,"""APACHE HTTPD 2.4""",
-WEBSRV31,1031,UAT,/OPT/WEBSPHERE,WEBSPHERE 8.5,3031,2031,"""WEBSPHERE 8.5""",
-WEBSRV32,1032,PROD,/OPT/NGINX,NGINX 1.18,3032,2032,"""NGINX 1.18""",
-WEBSRV33,1033,DEV,/OPT/TOMCAT,APACHE TOMCAT 9.0,3033,2033,"""APACHE TOMCAT 9.0""",
-WEBSRV34,1034,PROD,/OPT/HTTPD,APACHE HTTPD 2.4,3034,2034,"""APACHE HTTPD 2.4""",
-WEBSRV35,1035,UAT,/OPT/WEBSPHERE,WEBSPHERE 8.5,3035,2035,"""WEBSPHERE 8.5""",
-WEBSRV36,1036,DEV,/OPT/NGINX,NGINX 1.18,3036,2036,"""NGINX 1.18""",
-WEBSRV37,1037,PROD,/OPT/TOMCAT,APACHE TOMCAT 9.0,3037,2037,"""APACHE TOMCAT 9.0""",
-WEBSRV38,1038,DEV,/OPT/HTTPD,APACHE HTTPD 2.4,3038,2038,"""APACHE HTTPD 2.4""",
-WEBSRV39,1039,UAT,/OPT/WEBSPHERE,WEBSPHERE 8.5,3039,2039,"""WEBSPHERE 8.5""",
-WEBSRV40,1040,PROD,/OPT/NGINX,NGINX 1.18,3040,2040,"""NGINX 1.18""",
-WEBSRV41,1041,DEV,/OPT/TOMCAT,APACHE TOMCAT 9.0,3041,2041,"""APACHE TOMCAT 9.0""",
-WEBSRV42,1042,PROD,/OPT/HTTPD,APACHE HTTPD 2.4,3042,2042,"""APACHE HTTPD 2.4""",
-WEBSRV43,1043,UAT,/OPT/WEBSPHERE,WEBSPHERE 8.5,3043,2043,"""WEBSPHERE 8.5""",
-WEBSRV44,1044,DEV,/OPT/NGINX,NGINX 1.18,3044,2044,"""NGINX 1.18""",
-WEBSRV45,1045,PROD,/OPT/TOMCAT,APACHE TOMCAT 9.0,3045,2045,"""APACHE TOMCAT 9.0""",
-WEBSRV46,1046,DEV,/OPT/HTTPD,APACHE HTTPD 2.4,3046,2046,"""APACHE HTTPD 2.4""",
-WEBSRV47,1047,UAT,/OPT/WEBSPHERE,WEBSPHERE 8.5,3047,2047,"""WEBSPHERE 8.5""",
-WEBSRV48,1048,PROD,/OPT/NGINX,NGINX 1.18,3048,2048,"""NGINX 1.18""",
-WEBSRV49,1049,DEV,/OPT/TOMCAT,APACHE TOMCAT 9.0,3049,2049,"""APACHE TOMCAT 9.0""",
-WEBSRV50,1050,PROD,/OPT/HTTPD,APACHE HTTPD 2.4,3050,2050,"""APACHE HTTPD 2.4""",
+"ASSETNAME","INSTANCENAME","CATALOGID","MANUFACTURER","PRODUCTCLASS","PRODUCTTYPE","ENVIRONMENT","STATUS","SUBSTATUS","INSTALLPATH","OSIINVNO","INVNO","LOAD_DT","majorversion","minorversion","MODEL","LIFECYCLESTATUS","RELEASEVERSION","PRODUCTCATEGORY","ARCHITECTURE","VERUMCREATEDDATE","VERUMMODIFIEDDATE","EDITION","SOFTWARE","PRODUCTFAMILY","COMPONENT","SWNMAME","ISLICENSIBLE","MAJORVERSION","MINORVERSION","VERSIONSERVICEPACK","CATSERVICEPACK","SUIT","ISSUITCOMPONENT","GADATE","VERUMIDENTIFIER","VERUMSOR","VERUMMODIFIEDDATE_SC","VERUMLASTMODIFIEDBY","VERUMCREATEDBY","SOFTWAREMMVERSION","LCCURRENTENDDATE","LCCURRENTSTARTDATE","SWSERVICEPACK","GSPCEOL","SWID","MANUFACTURER_SC","MODEL_SC","PRODUCTCLASS_SC","PRODUCTTYPE_SC","STATUS_SC"
+"websrv01","Tomcat01","1001","APACHE","APPLICATION SERVER","WEB INSTANCE","DEV","Installed","Active","/opt/tomcat","2001","2001","2024-06-01","9","0","APACHE TOMCAT 9.0","","","","","","","Standard","Apache Tomcat","Web Server","Tomcat","APACHE TOMCAT 9.0","YES","9","0","0","0","NO","NO","2022-01-01","VERUM-001","ORACLE","2022-01-01","Admin","Admin","9.0.0","2025-12-31","2022-01-01","0","2025-12-31","SWID-001","Apache","Tomcat","Web Server","Application Server","Active"
+"websrv02","Httpd01","1002","APACHE","HTTP SERVER","WEB INSTANCE","PROD","Installed","Active","/opt/httpd","3002","2002","2024-06-01","2","4","APACHE HTTPD 2.4","","","","","","","Enterprise","Apache HTTP Server","Web Server","HTTPD","APACHE HTTPD 2.4","YES","2","4","0","0","NO","NO","2021-06-15","VERUM-002","ORACLE","2021-06-15","Admin","Admin","2.4.0","2024-06-30","2021-06-15","0","2024-06-30","SWID-002","Apache","HTTP Server","Web Server","Web Server","Active"
+"websrv03","WebSphere01","1003","IBM","APPLICATION SERVER","WEB INSTANCE","UAT","Installed","Active","/opt/websphere","3003","2003","2024-06-01","8","5","WEBSPHERE 8.5","","","","","","","Standard","IBM WebSphere","Application Server","WebSphere","WEBSPHERE 8.5","YES","8","5","0","0","NO","NO","2022-05-10","VERUM-004","IBM","2022-05-10","Admin","Admin","8.5.0","2026-05-09","2022-05-10","0","2026-05-09","SWID-004","IBM","WebSphere","Application Server","Application Server","Active"
+"websrv04","Nginx01","1004","NGINX","HTTP SERVER","WEB INSTANCE","DEV","Installed","Active","/opt/nginx","3004","2004","2024-06-01","1","18","NGINX 1.18","","","","","","","Standard","Nginx","Web Server","Nginx","NGINX 1.18","YES","1","18","0","0","NO","NO","2021-09-01","VERUM-006","NGINX","2021-09-01","Admin","Admin","1.18.0","2024-09-01","2021-09-01","0","2024-09-01","SWID-006","Nginx","Nginx","Web Server","Web Server","Active"
+"websrv05","Tomcat02","1005","APACHE","APPLICATION SERVER","WEB INSTANCE","PROD","Installed","Active","/opt/tomcat","3005","2005","2024-06-01","9","0","APACHE TOMCAT 9.0","","","","","","","Standard","Apache Tomcat","Web Server","Tomcat","APACHE TOMCAT 9.0","YES","9","0","0","0","NO","NO","2020-01-01","VERUM-008","ORACLE","2020-01-01","Admin","Admin","9.0.0","2022-12-31","2020-01-01","0","2022-12-31","SWID-008","Apache","Tomcat","Web Server","Application Server","Active"
+"websrv06","Httpd02","1006","APACHE","HTTP SERVER","WEB INSTANCE","DEV","Installed","Active","/opt/httpd","3006","2006","2024-06-01","2","4","APACHE HTTPD 2.4","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv07","WebSphere02","1007","IBM","APPLICATION SERVER","WEB INSTANCE","UAT","Installed","Active","/opt/websphere","3007","2007","2024-06-01","8","5","WEBSPHERE 8.5","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv08","Nginx02","1008","NGINX","HTTP SERVER","WEB INSTANCE","PROD","Installed","Active","/opt/nginx","3008","2008","2024-06-01","1","18","NGINX 1.18","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv09","Tomcat03","1009","APACHE","APPLICATION SERVER","WEB INSTANCE","DEV","Installed","Active","/opt/tomcat","3009","2009","2024-06-01","9","0","APACHE TOMCAT 9.0","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv10","Httpd03","1010","APACHE","HTTP SERVER","WEB INSTANCE","PROD","Installed","Active","/opt/httpd","3010","2010","2024-06-01","2","4","APACHE HTTPD 2.4","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv11","WebSphere03","1011","IBM","APPLICATION SERVER","WEB INSTANCE","UAT","Installed","Active","/opt/websphere","3011","2011","2024-06-01","8","5","WEBSPHERE 8.5","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv12","Nginx03","1012","NGINX","HTTP SERVER","WEB INSTANCE","DEV","Installed","Active","/opt/nginx","3012","2012","2024-06-01","1","18","NGINX 1.18","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv13","Tomcat04","1013","APACHE","APPLICATION SERVER","WEB INSTANCE","PROD","Installed","Active","/opt/tomcat","3013","2013","2024-06-01","9","0","APACHE TOMCAT 9.0","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv14","Httpd04","1014","APACHE","HTTP SERVER","WEB INSTANCE","DEV","Installed","Active","/opt/httpd","3014","2014","2024-06-01","2","4","APACHE HTTPD 2.4","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv15","WebSphere04","1015","IBM","APPLICATION SERVER","WEB INSTANCE","UAT","Installed","Active","/opt/websphere","3015","2015","2024-06-01","8","5","WEBSPHERE 8.5","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv16","Nginx04","1016","NGINX","HTTP SERVER","WEB INSTANCE","PROD","Installed","Active","/opt/nginx","3016","2016","2024-06-01","1","18","NGINX 1.18","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv17","Tomcat05","1017","APACHE","APPLICATION SERVER","WEB INSTANCE","DEV","Installed","Active","/opt/tomcat","3017","2017","2024-06-01","9","0","APACHE TOMCAT 9.0","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv18","Httpd05","1018","APACHE","HTTP SERVER","WEB INSTANCE","PROD","Installed","Active","/opt/httpd","3018","2018","2024-06-01","2","4","APACHE HTTPD 2.4","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv19","WebSphere05","1019","IBM","APPLICATION SERVER","WEB INSTANCE","UAT","Installed","Active","/opt/websphere","3019","2019","2024-06-01","8","5","WEBSPHERE 8.5","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv20","Nginx05","1020","NGINX","HTTP SERVER","WEB INSTANCE","DEV","Installed","Active","/opt/nginx","3020","2020","2024-06-01","1","18","NGINX 1.18","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv21","Tomcat06","1021","APACHE","APPLICATION SERVER","WEB INSTANCE","PROD","Installed","Active","/opt/tomcat","3021","2021","2024-06-01","9","0","APACHE TOMCAT 9.0","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv22","Httpd06","1022","APACHE","HTTP SERVER","WEB INSTANCE","DEV","Installed","Active","/opt/httpd","3022","2022","2024-06-01","2","4","APACHE HTTPD 2.4","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv23","WebSphere06","1023","IBM","APPLICATION SERVER","WEB INSTANCE","UAT","Installed","Active","/opt/websphere","3023","2023","2024-06-01","8","5","WEBSPHERE 8.5","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv24","Nginx06","1024","NGINX","HTTP SERVER","WEB INSTANCE","PROD","Installed","Active","/opt/nginx","3024","2024","2024-06-01","1","18","NGINX 1.18","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv25","Tomcat07","1025","APACHE","APPLICATION SERVER","WEB INSTANCE","DEV","Installed","Active","/opt/tomcat","3025","2025","2024-06-01","9","0","APACHE TOMCAT 9.0","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv26","Httpd07","1026","APACHE","HTTP SERVER","WEB INSTANCE","PROD","Installed","Active","/opt/httpd","3026","2026","2024-06-01","2","4","APACHE HTTPD 2.4","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv27","WebSphere07","1027","IBM","APPLICATION SERVER","WEB INSTANCE","UAT","Installed","Active","/opt/websphere","3027","2027","2024-06-01","8","5","WEBSPHERE 8.5","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv28","Nginx07","1028","NGINX","HTTP SERVER","WEB INSTANCE","DEV","Installed","Active","/opt/nginx","3028","2028","2024-06-01","1","18","NGINX 1.18","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv29","Tomcat08","1029","APACHE","APPLICATION SERVER","WEB INSTANCE","PROD","Installed","Active","/opt/tomcat","3029","2029","2024-06-01","9","0","APACHE TOMCAT 9.0","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv30","Httpd08","1030","APACHE","HTTP SERVER","WEB INSTANCE","DEV","Installed","Active","/opt/httpd","3030","2030","2024-06-01","2","4","APACHE HTTPD 2.4","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv31","WebSphere08","1031","IBM","APPLICATION SERVER","WEB INSTANCE","UAT","Installed","Active","/opt/websphere","3031","2031","2024-06-01","8","5","WEBSPHERE 8.5","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv32","Nginx08","1032","NGINX","HTTP SERVER","WEB INSTANCE","PROD","Installed","Active","/opt/nginx","3032","2032","2024-06-01","1","18","NGINX 1.18","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv33","Tomcat09","1033","APACHE","APPLICATION SERVER","WEB INSTANCE","DEV","Installed","Active","/opt/tomcat","3033","2033","2024-06-01","9","0","APACHE TOMCAT 9.0","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv34","Httpd09","1034","APACHE","HTTP SERVER","WEB INSTANCE","PROD","Installed","Active","/opt/httpd","3034","2034","2024-06-01","2","4","APACHE HTTPD 2.4","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv35","WebSphere09","1035","IBM","APPLICATION SERVER","WEB INSTANCE","UAT","Installed","Active","/opt/websphere","3035","2035","2024-06-01","8","5","WEBSPHERE 8.5","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv36","Nginx09","1036","NGINX","HTTP SERVER","WEB INSTANCE","DEV","Installed","Active","/opt/nginx","3036","2036","2024-06-01","1","18","NGINX 1.18","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv37","Tomcat10","1037","APACHE","APPLICATION SERVER","WEB INSTANCE","PROD","Installed","Active","/opt/tomcat","3037","2037","2024-06-01","9","0","APACHE TOMCAT 9.0","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv38","Httpd10","1038","APACHE","HTTP SERVER","WEB INSTANCE","DEV","Installed","Active","/opt/httpd","3038","2038","2024-06-01","2","4","APACHE HTTPD 2.4","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv39","WebSphere10","1039","IBM","APPLICATION SERVER","WEB INSTANCE","UAT","Installed","Active","/opt/websphere","3039","2039","2024-06-01","8","5","WEBSPHERE 8.5","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv40","Nginx10","1040","NGINX","HTTP SERVER","WEB INSTANCE","PROD","Installed","Active","/opt/nginx","3040","2040","2024-06-01","1","18","NGINX 1.18","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv41","Tomcat11","1041","APACHE","APPLICATION SERVER","WEB INSTANCE","DEV","Installed","Active","/opt/tomcat","3041","2041","2024-06-01","9","0","APACHE TOMCAT 9.0","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv42","Httpd11","1042","APACHE","HTTP SERVER","WEB INSTANCE","PROD","Installed","Active","/opt/httpd","3042","2042","2024-06-01","2","4","APACHE HTTPD 2.4","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv43","WebSphere11","1043","IBM","APPLICATION SERVER","WEB INSTANCE","UAT","Installed","Active","/opt/websphere","3043","2043","2024-06-01","8","5","WEBSPHERE 8.5","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv44","Nginx11","1044","NGINX","HTTP SERVER","WEB INSTANCE","DEV","Installed","Active","/opt/nginx","3044","2044","2024-06-01","1","18","NGINX 1.18","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv45","Tomcat12","1045","APACHE","APPLICATION SERVER","WEB INSTANCE","PROD","Installed","Active","/opt/tomcat","3045","2045","2024-06-01","9","0","APACHE TOMCAT 9.0","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv46","Httpd12","1046","APACHE","HTTP SERVER","WEB INSTANCE","DEV","Installed","Active","/opt/httpd","3046","2046","2024-06-01","2","4","APACHE HTTPD 2.4","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv47","WebSphere12","1047","IBM","APPLICATION SERVER","WEB INSTANCE","UAT","Installed","Active","/opt/websphere","3047","2047","2024-06-01","8","5","WEBSPHERE 8.5","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv48","Nginx12","1048","NGINX","HTTP SERVER","WEB INSTANCE","PROD","Installed","Active","/opt/nginx","3048","2048","2024-06-01","1","18","NGINX 1.18","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv49","Tomcat13","1049","APACHE","APPLICATION SERVER","WEB INSTANCE","DEV","Installed","Active","/opt/tomcat","3049","2049","2024-06-01","9","0","APACHE TOMCAT 9.0","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
+"websrv50","Httpd13","1050","APACHE","HTTP SERVER","WEB INSTANCE","PROD","Installed","Active","/opt/httpd","3050","2050","2024-06-01","2","4","APACHE HTTPD 2.4","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","",""
