@@ -8,24 +8,33 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def group_by_catalogid():
-    logger.info("Reading swecomponentmapping.csv...")
-    df = pd.read_csv('data/raw/swecomponentmapping.csv', encoding='utf-8')
-    df.columns = df.columns.str.strip().str.replace('"', '')
-    logger.info(f"Read {len(df)} records from swecomponentmapping.csv.")
+def group_swmap_data():
+    """Group PCat mapping data by CATALOGID and aggregate relevant fields."""
+    logger.info("Reading pcat_mapping.csv...")
+    df = pd.read_csv('data/processed/pcat_mapping.csv')
     
-    # Group by CATALOGID and aggregate SWNAME and INVNO
+    # Group by CATALOGID and aggregate fields
     grouped = df.groupby('CATALOGID').agg({
-        'SWNAME': lambda x: list(x),
-        'INVNO': lambda x: list(x)
+        'MODEL': lambda x: '|'.join(x.unique()),
+        'PRODUCTTYPE': lambda x: '|'.join(x.unique()),
+        'PRODUCTCLASS': lambda x: '|'.join(x.unique()),
+        'MANUFACTURER': lambda x: '|'.join(x.unique()),
+        'STATUS': lambda x: '|'.join(x.unique()),
+        'LIFECYCLESTATUS': lambda x: '|'.join(x.unique()),
+        'RELEASEVERSION': lambda x: '|'.join(x.unique()),
+        'PRODUCTCATEGORY': lambda x: '|'.join(x.unique()),
+        'ARCHITECTURE': lambda x: '|'.join(x.unique()),
+        'CREATED_DATE': 'min',
+        'MODIFIED_DATE': 'max'
     }).reset_index()
     
-    logger.info(f"Grouped into {len(grouped)} unique CATALOGIDs.")
-    
-    # Save the grouped data
-    output_file = 'data/processed/swecomponentmapping_grouped.csv'
+    # Save grouped data
+    output_file = 'data/processed/pcat_mapping_grouped.csv'
+    logger.info(f"Saving grouped data to {output_file}...")
     grouped.to_csv(output_file, index=False)
-    logger.info(f"Grouped data saved to {output_file}.")
+    
+    logger.info(f"Grouped {len(df)} records into {len(grouped)} unique CATALOGIDs")
+    return grouped
 
 if __name__ == '__main__':
-    group_by_catalogid() 
+    group_swmap_data() 

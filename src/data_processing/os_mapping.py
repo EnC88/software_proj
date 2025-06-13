@@ -46,7 +46,7 @@ def robust_read_csv(filepath, **kwargs):
         return df
 
 def process_os_mapping():
-    """Process WebServer data and match with component mapping based on OSIINVNO."""
+    """Process WebServer data and match with component mapping based on CATALOGID."""
     start_time = pd.Timestamp.now()
     logger.info("Starting OS mapping processing...")
     log_memory_usage()
@@ -54,18 +54,18 @@ def process_os_mapping():
     try:
         # Read mapping file
         logger.info("Reading mapping file...")
-        mapping_df = robust_read_csv('data/raw/swecomponentmapping.csv', dtype={'CATALOGID': str, 'INVNO': str})
+        mapping_df = robust_read_csv('data/processed/pcat_mapping.csv', dtype={'CATALOGID': str})
         
         # Clean column names
         mapping_df.columns = mapping_df.columns.str.strip().str.replace('"', '')
         
         # Validate mapping file columns
-        mapping_required = ['CATALOGID', 'SWNAME', 'INVNO']
+        mapping_required = ['CATALOGID', 'MODEL']
         _validate_data(mapping_df, mapping_required)
         
-        # Create a set of INVNOs for quick lookup
-        invno_set = set(mapping_df['INVNO'].apply(_clean_text))
-        logger.info(f"Sample INVNOs in Mapping: {list(invno_set)[:5]}")
+        # Create a set of CATALOGIDs for quick lookup
+        catalogid_set = set(mapping_df['CATALOGID'].apply(_clean_text))
+        logger.info(f"Sample CATALOGIDs in Mapping: {list(catalogid_set)[:5]}")
         
         # Clear mapping dataframe from memory
         del mapping_df
@@ -84,8 +84,8 @@ def process_os_mapping():
         
         # Iterate through each row in WebServer.csv
         for _, row in webserver_df.iterrows():
-            osiinvno = _clean_text(row['OSIINVNO'])
-            if osiinvno in invno_set:
+            catalogid = _clean_text(row['CATALOGID'])
+            if catalogid in catalogid_set:
                 matched_records.append(row)
         
         # Create a DataFrame from matched records
@@ -107,12 +107,12 @@ def process_os_mapping():
         # Print summary statistics
         logger.info("\nData Summary:")
         logger.info(f"Total Records in WebServer: {len(webserver_df):,}")
-        logger.info(f"Total Unique INVNOs in Mapping: {len(invno_set):,}")
+        logger.info(f"Total Unique CATALOGIDs in Mapping: {len(catalogid_set):,}")
         logger.info(f"Matched Records: {len(matched_df):,}")
         
         return {
             'total_webserver_records': len(webserver_df),
-            'total_mapping_invnos': len(invno_set),
+            'total_mapping_catalogids': len(catalogid_set),
             'matched_records': len(matched_df),
             'processing_time': processing_time.total_seconds()
         }
@@ -122,25 +122,25 @@ def process_os_mapping():
         raise
 
 def map_os_to_software(os_version):
-    """Map OS version to software name using the existing logic from process_os_mapping."""
+    """Map OS version to software name using the PCat mapping."""
     # Read mapping file
-    mapping_df = robust_read_csv('data/raw/swecomponentmapping.csv', dtype={'CATALOGID': str, 'INVNO': str})
+    mapping_df = robust_read_csv('data/processed/pcat_mapping.csv', dtype={'CATALOGID': str})
     
     # Clean column names
     mapping_df.columns = mapping_df.columns.str.strip().str.replace('"', '')
     
     # Validate mapping file columns
-    mapping_required = ['CATALOGID', 'SWNAME', 'INVNO']
+    mapping_required = ['CATALOGID', 'MODEL']
     _validate_data(mapping_df, mapping_required)
     
-    # Create a dictionary for quick lookup
-    invno_to_swname = dict(zip(mapping_df['INVNO'].apply(_clean_text), mapping_df['SWNAME']))
+    # Create a dictionary for quick lookup using CATALOGID to MODEL
+    catalogid_to_model = dict(zip(mapping_df['CATALOGID'].apply(_clean_text), mapping_df['MODEL']))
     
     # Clean the OS version for lookup
     cleaned_os_version = _clean_text(os_version)
     
-    # Return the software name if found, otherwise return None
-    return invno_to_swname.get(cleaned_os_version)
+    # Return the model if found, otherwise return None
+    return catalogid_to_model.get(cleaned_os_version)
 
 if __name__ == '__main__':
     try:
