@@ -1,0 +1,1250 @@
+{
+    "metadata": {
+        "analysis_date": "2025-06-13 14:15:14",
+        "total_servers": 50,
+        "environments": [
+            "DEV",
+            "PROD",
+            "UAT"
+        ],
+        "manufacturers": [
+            "APACHE",
+            "IBM",
+            "NGINX"
+        ]
+    },
+    "servers": [
+        {
+            "id": "1001",
+            "name": "websrv01",
+            "environment": "DEV",
+            "server_info": {
+                "manufacturer": "APACHE",
+                "product_class": "APPLICATION SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "APACHE TOMCAT 9.0",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/tomcat",
+                "instance_name": "Tomcat01"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2001,
+                "osi_inventory_number": 2001
+            }
+        },
+        {
+            "id": "1002",
+            "name": "websrv02",
+            "environment": "PROD",
+            "server_info": {
+                "manufacturer": "APACHE",
+                "product_class": "HTTP SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "APACHE HTTPD 2.4",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/httpd",
+                "instance_name": "Httpd01"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2002,
+                "osi_inventory_number": 3002
+            }
+        },
+        {
+            "id": "1003",
+            "name": "websrv03",
+            "environment": "UAT",
+            "server_info": {
+                "manufacturer": "IBM",
+                "product_class": "APPLICATION SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "WEBSPHERE 8.5",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/websphere",
+                "instance_name": "WebSphere01"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2003,
+                "osi_inventory_number": 3003
+            }
+        },
+        {
+            "id": "1004",
+            "name": "websrv04",
+            "environment": "DEV",
+            "server_info": {
+                "manufacturer": "NGINX",
+                "product_class": "HTTP SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "NGINX 1.18",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/nginx",
+                "instance_name": "Nginx01"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2004,
+                "osi_inventory_number": 3004
+            }
+        },
+        {
+            "id": "1005",
+            "name": "websrv05",
+            "environment": "PROD",
+            "server_info": {
+                "manufacturer": "APACHE",
+                "product_class": "APPLICATION SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "APACHE TOMCAT 9.0",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/tomcat",
+                "instance_name": "Tomcat02"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2005,
+                "osi_inventory_number": 3005
+            }
+        },
+        {
+            "id": "1006",
+            "name": "websrv06",
+            "environment": "DEV",
+            "server_info": {
+                "manufacturer": "APACHE",
+                "product_class": "HTTP SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "APACHE HTTPD 2.4",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/httpd",
+                "instance_name": "Httpd02"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2006,
+                "osi_inventory_number": 3006
+            }
+        },
+        {
+            "id": "1007",
+            "name": "websrv07",
+            "environment": "UAT",
+            "server_info": {
+                "manufacturer": "IBM",
+                "product_class": "APPLICATION SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "WEBSPHERE 8.5",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/websphere",
+                "instance_name": "WebSphere02"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2007,
+                "osi_inventory_number": 3007
+            }
+        },
+        {
+            "id": "1008",
+            "name": "websrv08",
+            "environment": "PROD",
+            "server_info": {
+                "manufacturer": "NGINX",
+                "product_class": "HTTP SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "NGINX 1.18",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/nginx",
+                "instance_name": "Nginx02"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2008,
+                "osi_inventory_number": 3008
+            }
+        },
+        {
+            "id": "1009",
+            "name": "websrv09",
+            "environment": "DEV",
+            "server_info": {
+                "manufacturer": "APACHE",
+                "product_class": "APPLICATION SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "APACHE TOMCAT 9.0",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/tomcat",
+                "instance_name": "Tomcat03"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2009,
+                "osi_inventory_number": 3009
+            }
+        },
+        {
+            "id": "1010",
+            "name": "websrv10",
+            "environment": "PROD",
+            "server_info": {
+                "manufacturer": "APACHE",
+                "product_class": "HTTP SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "APACHE HTTPD 2.4",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/httpd",
+                "instance_name": "Httpd03"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2010,
+                "osi_inventory_number": 3010
+            }
+        },
+        {
+            "id": "1011",
+            "name": "websrv11",
+            "environment": "UAT",
+            "server_info": {
+                "manufacturer": "IBM",
+                "product_class": "APPLICATION SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "WEBSPHERE 8.5",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/websphere",
+                "instance_name": "WebSphere03"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2011,
+                "osi_inventory_number": 3011
+            }
+        },
+        {
+            "id": "1012",
+            "name": "websrv12",
+            "environment": "DEV",
+            "server_info": {
+                "manufacturer": "NGINX",
+                "product_class": "HTTP SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "NGINX 1.18",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/nginx",
+                "instance_name": "Nginx03"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2012,
+                "osi_inventory_number": 3012
+            }
+        },
+        {
+            "id": "1013",
+            "name": "websrv13",
+            "environment": "PROD",
+            "server_info": {
+                "manufacturer": "APACHE",
+                "product_class": "APPLICATION SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "APACHE TOMCAT 9.0",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/tomcat",
+                "instance_name": "Tomcat04"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2013,
+                "osi_inventory_number": 3013
+            }
+        },
+        {
+            "id": "1014",
+            "name": "websrv14",
+            "environment": "DEV",
+            "server_info": {
+                "manufacturer": "APACHE",
+                "product_class": "HTTP SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "APACHE HTTPD 2.4",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/httpd",
+                "instance_name": "Httpd04"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2014,
+                "osi_inventory_number": 3014
+            }
+        },
+        {
+            "id": "1015",
+            "name": "websrv15",
+            "environment": "UAT",
+            "server_info": {
+                "manufacturer": "IBM",
+                "product_class": "APPLICATION SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "WEBSPHERE 8.5",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/websphere",
+                "instance_name": "WebSphere04"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2015,
+                "osi_inventory_number": 3015
+            }
+        },
+        {
+            "id": "1016",
+            "name": "websrv16",
+            "environment": "PROD",
+            "server_info": {
+                "manufacturer": "NGINX",
+                "product_class": "HTTP SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "NGINX 1.18",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/nginx",
+                "instance_name": "Nginx04"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2016,
+                "osi_inventory_number": 3016
+            }
+        },
+        {
+            "id": "1017",
+            "name": "websrv17",
+            "environment": "DEV",
+            "server_info": {
+                "manufacturer": "APACHE",
+                "product_class": "APPLICATION SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "APACHE TOMCAT 9.0",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/tomcat",
+                "instance_name": "Tomcat05"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2017,
+                "osi_inventory_number": 3017
+            }
+        },
+        {
+            "id": "1018",
+            "name": "websrv18",
+            "environment": "PROD",
+            "server_info": {
+                "manufacturer": "APACHE",
+                "product_class": "HTTP SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "APACHE HTTPD 2.4",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/httpd",
+                "instance_name": "Httpd05"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2018,
+                "osi_inventory_number": 3018
+            }
+        },
+        {
+            "id": "1019",
+            "name": "websrv19",
+            "environment": "UAT",
+            "server_info": {
+                "manufacturer": "IBM",
+                "product_class": "APPLICATION SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "WEBSPHERE 8.5",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/websphere",
+                "instance_name": "WebSphere05"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2019,
+                "osi_inventory_number": 3019
+            }
+        },
+        {
+            "id": "1020",
+            "name": "websrv20",
+            "environment": "DEV",
+            "server_info": {
+                "manufacturer": "NGINX",
+                "product_class": "HTTP SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "NGINX 1.18",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/nginx",
+                "instance_name": "Nginx05"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2020,
+                "osi_inventory_number": 3020
+            }
+        },
+        {
+            "id": "1021",
+            "name": "websrv21",
+            "environment": "PROD",
+            "server_info": {
+                "manufacturer": "APACHE",
+                "product_class": "APPLICATION SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "APACHE TOMCAT 9.0",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/tomcat",
+                "instance_name": "Tomcat06"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2021,
+                "osi_inventory_number": 3021
+            }
+        },
+        {
+            "id": "1022",
+            "name": "websrv22",
+            "environment": "DEV",
+            "server_info": {
+                "manufacturer": "APACHE",
+                "product_class": "HTTP SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "APACHE HTTPD 2.4",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/httpd",
+                "instance_name": "Httpd06"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2022,
+                "osi_inventory_number": 3022
+            }
+        },
+        {
+            "id": "1023",
+            "name": "websrv23",
+            "environment": "UAT",
+            "server_info": {
+                "manufacturer": "IBM",
+                "product_class": "APPLICATION SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "WEBSPHERE 8.5",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/websphere",
+                "instance_name": "WebSphere06"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2023,
+                "osi_inventory_number": 3023
+            }
+        },
+        {
+            "id": "1024",
+            "name": "websrv24",
+            "environment": "PROD",
+            "server_info": {
+                "manufacturer": "NGINX",
+                "product_class": "HTTP SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "NGINX 1.18",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/nginx",
+                "instance_name": "Nginx06"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2024,
+                "osi_inventory_number": 3024
+            }
+        },
+        {
+            "id": "1025",
+            "name": "websrv25",
+            "environment": "DEV",
+            "server_info": {
+                "manufacturer": "APACHE",
+                "product_class": "APPLICATION SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "APACHE TOMCAT 9.0",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/tomcat",
+                "instance_name": "Tomcat07"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2025,
+                "osi_inventory_number": 3025
+            }
+        },
+        {
+            "id": "1026",
+            "name": "websrv26",
+            "environment": "PROD",
+            "server_info": {
+                "manufacturer": "APACHE",
+                "product_class": "HTTP SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "APACHE HTTPD 2.4",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/httpd",
+                "instance_name": "Httpd07"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2026,
+                "osi_inventory_number": 3026
+            }
+        },
+        {
+            "id": "1027",
+            "name": "websrv27",
+            "environment": "UAT",
+            "server_info": {
+                "manufacturer": "IBM",
+                "product_class": "APPLICATION SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "WEBSPHERE 8.5",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/websphere",
+                "instance_name": "WebSphere07"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2027,
+                "osi_inventory_number": 3027
+            }
+        },
+        {
+            "id": "1028",
+            "name": "websrv28",
+            "environment": "DEV",
+            "server_info": {
+                "manufacturer": "NGINX",
+                "product_class": "HTTP SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "NGINX 1.18",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/nginx",
+                "instance_name": "Nginx07"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2028,
+                "osi_inventory_number": 3028
+            }
+        },
+        {
+            "id": "1029",
+            "name": "websrv29",
+            "environment": "PROD",
+            "server_info": {
+                "manufacturer": "APACHE",
+                "product_class": "APPLICATION SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "APACHE TOMCAT 9.0",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/tomcat",
+                "instance_name": "Tomcat08"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2029,
+                "osi_inventory_number": 3029
+            }
+        },
+        {
+            "id": "1030",
+            "name": "websrv30",
+            "environment": "DEV",
+            "server_info": {
+                "manufacturer": "APACHE",
+                "product_class": "HTTP SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "APACHE HTTPD 2.4",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/httpd",
+                "instance_name": "Httpd08"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2030,
+                "osi_inventory_number": 3030
+            }
+        },
+        {
+            "id": "1031",
+            "name": "websrv31",
+            "environment": "UAT",
+            "server_info": {
+                "manufacturer": "IBM",
+                "product_class": "APPLICATION SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "WEBSPHERE 8.5",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/websphere",
+                "instance_name": "WebSphere08"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2031,
+                "osi_inventory_number": 3031
+            }
+        },
+        {
+            "id": "1032",
+            "name": "websrv32",
+            "environment": "PROD",
+            "server_info": {
+                "manufacturer": "NGINX",
+                "product_class": "HTTP SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "NGINX 1.18",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/nginx",
+                "instance_name": "Nginx08"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2032,
+                "osi_inventory_number": 3032
+            }
+        },
+        {
+            "id": "1033",
+            "name": "websrv33",
+            "environment": "DEV",
+            "server_info": {
+                "manufacturer": "APACHE",
+                "product_class": "APPLICATION SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "APACHE TOMCAT 9.0",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/tomcat",
+                "instance_name": "Tomcat09"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2033,
+                "osi_inventory_number": 3033
+            }
+        },
+        {
+            "id": "1034",
+            "name": "websrv34",
+            "environment": "PROD",
+            "server_info": {
+                "manufacturer": "APACHE",
+                "product_class": "HTTP SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "APACHE HTTPD 2.4",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/httpd",
+                "instance_name": "Httpd09"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2034,
+                "osi_inventory_number": 3034
+            }
+        },
+        {
+            "id": "1035",
+            "name": "websrv35",
+            "environment": "UAT",
+            "server_info": {
+                "manufacturer": "IBM",
+                "product_class": "APPLICATION SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "WEBSPHERE 8.5",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/websphere",
+                "instance_name": "WebSphere09"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2035,
+                "osi_inventory_number": 3035
+            }
+        },
+        {
+            "id": "1036",
+            "name": "websrv36",
+            "environment": "DEV",
+            "server_info": {
+                "manufacturer": "NGINX",
+                "product_class": "HTTP SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "NGINX 1.18",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/nginx",
+                "instance_name": "Nginx09"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2036,
+                "osi_inventory_number": 3036
+            }
+        },
+        {
+            "id": "1037",
+            "name": "websrv37",
+            "environment": "PROD",
+            "server_info": {
+                "manufacturer": "APACHE",
+                "product_class": "APPLICATION SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "APACHE TOMCAT 9.0",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/tomcat",
+                "instance_name": "Tomcat10"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2037,
+                "osi_inventory_number": 3037
+            }
+        },
+        {
+            "id": "1038",
+            "name": "websrv38",
+            "environment": "DEV",
+            "server_info": {
+                "manufacturer": "APACHE",
+                "product_class": "HTTP SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "APACHE HTTPD 2.4",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/httpd",
+                "instance_name": "Httpd10"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2038,
+                "osi_inventory_number": 3038
+            }
+        },
+        {
+            "id": "1039",
+            "name": "websrv39",
+            "environment": "UAT",
+            "server_info": {
+                "manufacturer": "IBM",
+                "product_class": "APPLICATION SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "WEBSPHERE 8.5",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/websphere",
+                "instance_name": "WebSphere10"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2039,
+                "osi_inventory_number": 3039
+            }
+        },
+        {
+            "id": "1040",
+            "name": "websrv40",
+            "environment": "PROD",
+            "server_info": {
+                "manufacturer": "NGINX",
+                "product_class": "HTTP SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "NGINX 1.18",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/nginx",
+                "instance_name": "Nginx10"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2040,
+                "osi_inventory_number": 3040
+            }
+        },
+        {
+            "id": "1041",
+            "name": "websrv41",
+            "environment": "DEV",
+            "server_info": {
+                "manufacturer": "APACHE",
+                "product_class": "APPLICATION SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "APACHE TOMCAT 9.0",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/tomcat",
+                "instance_name": "Tomcat11"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2041,
+                "osi_inventory_number": 3041
+            }
+        },
+        {
+            "id": "1042",
+            "name": "websrv42",
+            "environment": "PROD",
+            "server_info": {
+                "manufacturer": "APACHE",
+                "product_class": "HTTP SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "APACHE HTTPD 2.4",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/httpd",
+                "instance_name": "Httpd11"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2042,
+                "osi_inventory_number": 3042
+            }
+        },
+        {
+            "id": "1043",
+            "name": "websrv43",
+            "environment": "UAT",
+            "server_info": {
+                "manufacturer": "IBM",
+                "product_class": "APPLICATION SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "WEBSPHERE 8.5",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/websphere",
+                "instance_name": "WebSphere11"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2043,
+                "osi_inventory_number": 3043
+            }
+        },
+        {
+            "id": "1044",
+            "name": "websrv44",
+            "environment": "DEV",
+            "server_info": {
+                "manufacturer": "NGINX",
+                "product_class": "HTTP SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "NGINX 1.18",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/nginx",
+                "instance_name": "Nginx11"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2044,
+                "osi_inventory_number": 3044
+            }
+        },
+        {
+            "id": "1045",
+            "name": "websrv45",
+            "environment": "PROD",
+            "server_info": {
+                "manufacturer": "APACHE",
+                "product_class": "APPLICATION SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "APACHE TOMCAT 9.0",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/tomcat",
+                "instance_name": "Tomcat12"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2045,
+                "osi_inventory_number": 3045
+            }
+        },
+        {
+            "id": "1046",
+            "name": "websrv46",
+            "environment": "DEV",
+            "server_info": {
+                "manufacturer": "APACHE",
+                "product_class": "HTTP SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "APACHE HTTPD 2.4",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/httpd",
+                "instance_name": "Httpd12"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2046,
+                "osi_inventory_number": 3046
+            }
+        },
+        {
+            "id": "1047",
+            "name": "websrv47",
+            "environment": "UAT",
+            "server_info": {
+                "manufacturer": "IBM",
+                "product_class": "APPLICATION SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "WEBSPHERE 8.5",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/websphere",
+                "instance_name": "WebSphere12"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2047,
+                "osi_inventory_number": 3047
+            }
+        },
+        {
+            "id": "1048",
+            "name": "websrv48",
+            "environment": "PROD",
+            "server_info": {
+                "manufacturer": "NGINX",
+                "product_class": "HTTP SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "NGINX 1.18",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/nginx",
+                "instance_name": "Nginx12"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2048,
+                "osi_inventory_number": 3048
+            }
+        },
+        {
+            "id": "1049",
+            "name": "websrv49",
+            "environment": "DEV",
+            "server_info": {
+                "manufacturer": "APACHE",
+                "product_class": "APPLICATION SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "APACHE TOMCAT 9.0",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/tomcat",
+                "instance_name": "Tomcat13"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2049,
+                "osi_inventory_number": 3049
+            }
+        },
+        {
+            "id": "1050",
+            "name": "websrv50",
+            "environment": "PROD",
+            "server_info": {
+                "manufacturer": "APACHE",
+                "product_class": "HTTP SERVER",
+                "product_type": "WEB INSTANCE",
+                "model": "APACHE HTTPD 2.4",
+                "status": "Installed",
+                "substatus": "Active"
+            },
+            "deployment_info": {
+                "install_path": "/opt/httpd",
+                "instance_name": "Httpd13"
+            },
+            "metadata": {
+                "load_date": "2024-06-01",
+                "inventory_number": 2050,
+                "osi_inventory_number": 3050
+            }
+        }
+    ],
+    "environment_summaries": {
+        "DEV": {
+            "total_servers": 19,
+            "server_types": {
+                "('APACHE', 'APPLICATION SERVER', 'WEB INSTANCE')": 7,
+                "('APACHE', 'HTTP SERVER', 'WEB INSTANCE')": 6,
+                "('NGINX', 'HTTP SERVER', 'WEB INSTANCE')": 6
+            },
+            "status_distribution": {
+                "Installed": 19
+            }
+        },
+        "PROD": {
+            "total_servers": 19,
+            "server_types": {
+                "('APACHE', 'APPLICATION SERVER', 'WEB INSTANCE')": 6,
+                "('APACHE', 'HTTP SERVER', 'WEB INSTANCE')": 7,
+                "('NGINX', 'HTTP SERVER', 'WEB INSTANCE')": 6
+            },
+            "status_distribution": {
+                "Installed": 19
+            }
+        },
+        "UAT": {
+            "total_servers": 12,
+            "server_types": {
+                "('IBM', 'APPLICATION SERVER', 'WEB INSTANCE')": 12
+            },
+            "status_distribution": {
+                "Installed": 12
+            }
+        }
+    },
+    "manufacturer_summaries": {
+        "APACHE": {
+            "total_servers": 26,
+            "environments": {
+                "DEV": 13,
+                "PROD": 13
+            },
+            "product_types": {
+                "('APPLICATION SERVER', 'WEB INSTANCE')": 13,
+                "('HTTP SERVER', 'WEB INSTANCE')": 13
+            }
+        },
+        "IBM": {
+            "total_servers": 12,
+            "environments": {
+                "UAT": 12
+            },
+            "product_types": {
+                "('APPLICATION SERVER', 'WEB INSTANCE')": 12
+            }
+        },
+        "NGINX": {
+            "total_servers": 12,
+            "environments": {
+                "DEV": 6,
+                "PROD": 6
+            },
+            "product_types": {
+                "('HTTP SERVER', 'WEB INSTANCE')": 12
+            }
+        }
+    },
+    "compatibility_patterns": {
+        "by_environment": {
+            "DEV": {
+                "total_servers": 19,
+                "server_types": {
+                    "('APACHE', 'APPLICATION SERVER', 'WEB INSTANCE')": 7,
+                    "('APACHE', 'HTTP SERVER', 'WEB INSTANCE')": 6,
+                    "('NGINX', 'HTTP SERVER', 'WEB INSTANCE')": 6
+                },
+                "status_distribution": {
+                    "Installed": 19
+                }
+            },
+            "PROD": {
+                "total_servers": 19,
+                "server_types": {
+                    "('APACHE', 'APPLICATION SERVER', 'WEB INSTANCE')": 6,
+                    "('APACHE', 'HTTP SERVER', 'WEB INSTANCE')": 7,
+                    "('NGINX', 'HTTP SERVER', 'WEB INSTANCE')": 6
+                },
+                "status_distribution": {
+                    "Installed": 19
+                }
+            },
+            "UAT": {
+                "total_servers": 12,
+                "server_types": {
+                    "('IBM', 'APPLICATION SERVER', 'WEB INSTANCE')": 12
+                },
+                "status_distribution": {
+                    "Installed": 12
+                }
+            }
+        },
+        "by_manufacturer": {
+            "APACHE": {
+                "total_servers": 26,
+                "environments": {
+                    "DEV": 13,
+                    "PROD": 13
+                },
+                "product_types": {
+                    "('APPLICATION SERVER', 'WEB INSTANCE')": 13,
+                    "('HTTP SERVER', 'WEB INSTANCE')": 13
+                }
+            },
+            "IBM": {
+                "total_servers": 12,
+                "environments": {
+                    "UAT": 12
+                },
+                "product_types": {
+                    "('APPLICATION SERVER', 'WEB INSTANCE')": 12
+                }
+            },
+            "NGINX": {
+                "total_servers": 12,
+                "environments": {
+                    "DEV": 6,
+                    "PROD": 6
+                },
+                "product_types": {
+                    "('HTTP SERVER', 'WEB INSTANCE')": 12
+                }
+            }
+        }
+    }
+}
