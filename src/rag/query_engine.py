@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Query Engine for RAG Pipeline
-Loads FAISS index and spaCy model for similarity search
+Loads FAISS index and hybrid embedder for similarity search
 """
 
 import json
@@ -10,38 +10,37 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 import numpy as np
 import faiss
-import spacy
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 class QueryEngine:
-    """Production-ready query engine for RAG pipeline."""
+    """Production-ready query engine for RAG pipeline using hybrid embedder."""
     
     def __init__(self, 
-                 model_name: str = 'en_core_web_trf',
                  index_path: str = 'data/processed/faiss_index/index.faiss',
                  id_to_chunk_path: str = 'data/processed/faiss_index/id_to_chunk.json',
                  metadata_path: str = 'data/processed/embeddings/metadata.json',
-                 chunks_dir: str = 'data/processed/chunks'):
+                 chunks_dir: str = 'data/processed/chunks',
+                 hybrid_model_path: str = 'data/processed/embeddings/hybrid_model'):
         """Initialize the query engine.
         
         Args:
-            model_name: spaCy model name
             index_path: Path to FAISS index
             id_to_chunk_path: Path to id-to-chunk mapping
             metadata_path: Path to embeddings metadata
             chunks_dir: Directory containing chunk files
+            hybrid_model_path: Path to hybrid embedder model
         """
-        self.model_name = model_name
         self.index_path = Path(index_path)
         self.id_to_chunk_path = Path(id_to_chunk_path)
         self.metadata_path = Path(metadata_path)
         self.chunks_dir = Path(chunks_dir)
+        self.hybrid_model_path = Path(hybrid_model_path)
         
         # Initialize components
-        self.nlp = None
+        self.embedder = None
         self.index = None
         self.id_to_chunk = {}
         self.metadata = {}
@@ -52,10 +51,14 @@ class QueryEngine:
     def _load_components(self):
         """Load all required components."""
         try:
-            # Load spaCy model
-            logger.info(f"Loading spaCy model: {self.model_name}")
-            self.nlp = spacy.load(self.model_name)
-            logger.info("spaCy model loaded successfully")
+            # Load hybrid embedder
+            logger.info(f"Loading hybrid embedder from {self.hybrid_model_path}")
+            import sys
+            sys.path.append(str(Path(__file__).parent.parent))
+            from data_processing.hybrid_embedder import HybridEmbedder
+            self.embedder = HybridEmbedder()
+            self.embedder.load(self.hybrid_model_path)
+            logger.info("Hybrid embedder loaded successfully")
             
             # Load FAISS index
             logger.info(f"Loading FAISS index from {self.index_path}")
@@ -98,9 +101,9 @@ class QueryEngine:
             List of dictionaries containing chunk info and similarity scores
         """
         try:
-            # Embed the query
-            query_doc = self.nlp(query_text)
-            query_embedding = query_doc.vector.reshape(1, -1).astype(np.float32)
+            # Embed the query using hybrid embedder
+            query_embedding = self.embedder.encode([query_text], convert_to_numpy=True)
+            query_embedding = query_embedding.reshape(1, -1).astype(np.float32)
             
             # Search the index
             distances, indices = self.index.search(query_embedding, top_k)
@@ -196,11 +199,11 @@ class QueryEngine:
     def get_stats(self) -> Dict[str, Any]:
         """Get statistics about the loaded data."""
         return {
-            'model_name': self.model_name,
+            'model_type': 'hybrid-nltk-sklearn',
             'index_size': self.index.ntotal if self.index else 0,
             'chunks_loaded': len(self.chunks),
             'metadata_entries': len(self.metadata),
-            'embedding_dimension': self.nlp.vocab.vectors.shape[1] if self.nlp and self.nlp.vocab.vectors.shape[1] > 0 else 768
+            'embedding_dimension': self.embedder.get_sentence_embedding_dimension() if self.embedder else 300
         }
 
 
