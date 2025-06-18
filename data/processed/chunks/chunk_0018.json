@@ -1,0 +1,50 @@
+{
+  "type": "server_chunk",
+  "servers": [
+    {
+      "id": "1035",
+      "name": "websrv35",
+      "environment": "UAT",
+      "server_info": {
+        "manufacturer": "IBM",
+        "product_class": "APPLICATION SERVER",
+        "product_type": "WEB INSTANCE",
+        "model": "WEBSPHERE 8.5",
+        "status": "Installed",
+        "substatus": "Active"
+      },
+      "deployment_info": {
+        "install_path": "/opt/websphere",
+        "instance_name": "WebSphere09"
+      },
+      "metadata": {
+        "load_date": "2024-06-01",
+        "inventory_number": 2035,
+        "osi_inventory_number": 3035
+      }
+    },
+    {
+      "id": "1036",
+      "name": "websrv36",
+      "environment": "DEV",
+      "server_info": {
+        "manufacturer": "NGINX",
+        "product_class": "HTTP SERVER",
+        "product_type": "WEB INSTANCE",
+        "model": "NGINX 1.18",
+        "status": "Installed",
+        "substatus": "Active"
+      },
+      "deployment_info": {
+        "install_path": "/opt/nginx",
+        "instance_name": "Nginx09"
+      },
+      "metadata": {
+        "load_date": "2024-06-01",
+        "inventory_number": 2036,
+        "osi_inventory_number": 3036
+      }
+    }
+  ],
+  "chunk_size": 830
+}

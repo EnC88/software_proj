@@ -1,0 +1,15 @@
+{
+  "type": "environment_summary",
+  "environment": "DEV",
+  "data": {
+    "total_servers": 19,
+    "server_types": {
+      "('APACHE', 'APPLICATION SERVER', 'WEB INSTANCE')": 7,
+      "('APACHE', 'HTTP SERVER', 'WEB INSTANCE')": 6,
+      "('NGINX', 'HTTP SERVER', 'WEB INSTANCE')": 6
+    },
+    "status_distribution": {
+      "Installed": 19
+    }
+  }
+}

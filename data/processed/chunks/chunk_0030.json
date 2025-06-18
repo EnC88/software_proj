@@ -1,0 +1,13 @@
+{
+  "type": "manufacturer_summary",
+  "manufacturer": "IBM",
+  "data": {
+    "total_servers": 12,
+    "environments": {
+      "UAT": 12
+    },
+    "product_types": {
+      "('APPLICATION SERVER', 'WEB INSTANCE')": 12
+    }
+  }
+}

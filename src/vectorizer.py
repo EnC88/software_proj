@@ -1,5 +1,4 @@
-import tensorflow_hub as hub
-import tensorflow_text
+import sentence_transformers
 import numpy as np
 import pandas as pd
 from typing import List, Dict, Any, Optional
@@ -12,19 +11,27 @@ import threading
 from sqlalchemy import text
 
 from .models.query_parser import QueryParser
-from .database.upgrade_db import UpgradeDatabase
+from .database.upgrade_db import Database
 from .cache.query_cache import QueryCache
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class UpgradeVectorizer:
-    def __init__(self, use_database: bool = True, use_cache: bool = True):
-        """Initialize the vectorizer with caching and performance optimizations."""
+class Vectorizer:
+    def __init__(self, use_database: bool = True, use_cache: bool = True, 
+                 model_name: str = 'all-MiniLM-L6-v2'):
+        """Initialize the vectorizer with caching and performance optimizations.
+        
+        Args:
+            use_database: Whether to use database storage
+            use_cache: Whether to use query caching
+            model_name: Model name for sentence transformers
+        """
         self.use_database = use_database
         self.use_cache = use_cache
-        self.db = UpgradeDatabase() if use_database else None
+        self.model_name = model_name
+        self.db = Database() if use_database else None
         self.model = None
         self.model_lock = threading.Lock()
         self.chunked_df = None
@@ -37,25 +44,72 @@ class UpgradeVectorizer:
         if self.model is None:
             with self.model_lock:
                 if self.model is None:  # Double-check pattern
-                    logger.info("Loading Universal Sentence Encoder model...")
+                    logger.info(f"Loading Sentence Transformer model: {self.model_name}")
                     try:
-                        self.model = hub.load("https://tfhub.dev/google/universal-sentence-encoder-multilingual/3")
-                        logger.info("Model loaded successfully")
+                        self.model = sentence_transformers.SentenceTransformer(self.model_name)
+                        logger.info("Sentence Transformer model loaded successfully")
                     except Exception as e:
-                        logger.error(f"Error loading model: {str(e)}")
+                        logger.error(f"Error loading Sentence Transformer model: {str(e)}")
                         raise
                     
                     # Initialize query parser
                     self.query_parser = QueryParser()
     
-    @lru_cache(maxsize=1000)
+    @lru_cache(maxsize=50000)  # Increased for large datasets (couple million data points)
     def _get_embedding(self, text: str) -> np.ndarray:
         """Get embedding for text with caching."""
         try:
-            return self.model([text])[0].numpy()
+            return self.model.encode(text, convert_to_numpy=True)
         except Exception as e:
             logger.error(f"Error getting embedding: {str(e)}")
-            return np.zeros(512)  # Return zero vector on error
+            # Return zero vector with correct dimension
+            return np.zeros(self.model.get_sentence_embedding_dimension())
+    
+    def get_model_info(self) -> Dict[str, Any]:
+        """Get information about the current model."""
+        try:
+            return {
+                'type': 'sentence_transformers',
+                'model_name': self.model_name,
+                'embedding_dimension': self.model.get_sentence_embedding_dimension(),
+                'multilingual': 'all-MiniLM-L6-v2' in self.model_name,
+                'model_size': '~90MB'
+            }
+        except Exception as e:
+            logger.error(f"Error getting model info: {str(e)}")
+            return {}
+    
+    def benchmark_model(self, test_texts: List[str] = None) -> Dict[str, Any]:
+        """Benchmark the current model for performance."""
+        if test_texts is None:
+            test_texts = [
+                "How to upgrade Apache from version 2.4.1 to 2.4.2?",
+                "What are common issues with MySQL 8.0 upgrade?",
+                "How to handle WebSphere rollback procedures?",
+                "Best practices for software version upgrades",
+                "Troubleshooting upgrade failures in production"
+            ]
+        
+        start_time = time.time()
+        embeddings = []
+        for text in test_texts:
+            embedding = self.model.encode(text, convert_to_numpy=True)
+            embeddings.append(embedding)
+        total_time = time.time() - start_time
+        
+        results = {
+            'time_per_text': total_time / len(test_texts),
+            'total_time': total_time,
+            'embedding_dimension': len(embeddings[0]),
+            'model_info': self.get_model_info()
+        }
+        
+        logger.info(f"Benchmark results:")
+        logger.info(f"  Time per text: {results['time_per_text']:.4f}s")
+        logger.info(f"  Total time: {results['total_time']:.4f}s")
+        logger.info(f"  Embedding dimension: {results['embedding_dimension']}")
+        
+        return results
     
     def vectorize(self) -> None:
         """Vectorize the data with improved performance."""
@@ -82,12 +136,13 @@ class UpgradeVectorizer:
         
         try:
             # Generate embeddings in batches
-            batch_size = 32
+            batch_size = 32  # Larger batches for sentence transformers
             embeddings = []
             
             for i in range(0, len(self.chunked_df), batch_size):
                 batch = self.chunked_df['CHUNK_TEXT'].iloc[i:i+batch_size].tolist()
-                batch_embeddings = self.model(batch).numpy()
+                
+                batch_embeddings = self.model.encode(batch, convert_to_numpy=True)
                 
                 # Format embeddings for database storage
                 for j, embedding in enumerate(batch_embeddings):
@@ -196,7 +251,7 @@ class UpgradeVectorizer:
                 results = self.db.query_similar_vectors(query_embedding, min_similarity=0.1, top_k=top_k)
             else:
                 # Fallback to in-memory comparison if database is not used
-                vectors = self.model(self.chunked_df['CHUNK_TEXT'].tolist()).numpy()
+                vectors = self.model.encode(self.chunked_df['CHUNK_TEXT'].tolist(), convert_to_numpy=True)
                 similarities = [self._calculate_similarity(query_embedding, vec) for vec in vectors]
                 top_indices = np.argsort(similarities)[-top_k:][::-1]
                 

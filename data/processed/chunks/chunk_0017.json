@@ -1,0 +1,50 @@
+{
+  "type": "server_chunk",
+  "servers": [
+    {
+      "id": "1033",
+      "name": "websrv33",
+      "environment": "DEV",
+      "server_info": {
+        "manufacturer": "APACHE",
+        "product_class": "APPLICATION SERVER",
+        "product_type": "WEB INSTANCE",
+        "model": "APACHE TOMCAT 9.0",
+        "status": "Installed",
+        "substatus": "Active"
+      },
+      "deployment_info": {
+        "install_path": "/opt/tomcat",
+        "instance_name": "Tomcat09"
+      },
+      "metadata": {
+        "load_date": "2024-06-01",
+        "inventory_number": 2033,
+        "osi_inventory_number": 3033
+      }
+    },
+    {
+      "id": "1034",
+      "name": "websrv34",
+      "environment": "PROD",
+      "server_info": {
+        "manufacturer": "APACHE",
+        "product_class": "HTTP SERVER",
+        "product_type": "WEB INSTANCE",
+        "model": "APACHE HTTPD 2.4",
+        "status": "Installed",
+        "substatus": "Active"
+      },
+      "deployment_info": {
+        "install_path": "/opt/httpd",
+        "instance_name": "Httpd09"
+      },
+      "metadata": {
+        "load_date": "2024-06-01",
+        "inventory_number": 2034,
+        "osi_inventory_number": 3034
+      }
+    }
+  ],
+  "chunk_size": 839
+}

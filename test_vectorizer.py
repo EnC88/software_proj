@@ -5,7 +5,7 @@ import os
 # Add the project root directory to Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.vectorizer import UpgradeVectorizer
+from src.vectorizer import Vectorizer
 import logging
 
 # Configure logging
@@ -29,7 +29,7 @@ def main():
     df = pd.DataFrame(sample_data)
     
     # Initialize vectorizer
-    vectorizer = UpgradeVectorizer(use_database=True)
+    vectorizer = Vectorizer(use_database=True)
     vectorizer.chunked_df = df
     
     try:

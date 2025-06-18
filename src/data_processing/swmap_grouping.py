@@ -48,7 +48,27 @@ def process_webserver_os_mapping():
     webserver_df['CATALOGID'] = webserver_df['CATALOGID'].astype(str)
     pcat_df['CATALOGID'] = pcat_df['CATALOGID'].astype(str)
     # Merge webserver data with PCat data
-    final_df = pd.merge(webserver_df, pcat_df, on='CATALOGID', how='left')
+    final_df = pd.merge(webserver_df, pcat_df[['CATALOGID', 'MANUFACTURER', 'PRODUCTCLASS', 'PRODUCTTYPE', 'STATUS']], on='CATALOGID', how='left')
+
+    # Select important columns for vectorization
+    important_columns = [
+        'ASSETNAME', 'INSTANCENAME', 'CATALOGID', 'MANUFACTURER', 'PRODUCTCLASS', 'PRODUCTTYPE',
+        'ENVIRONMENT', 'STATUS', 'SUBSTATUS', 'INSTALLPATH', 'OSIINVNO', 'LOAD_DT'
+    ]
+    final_df = final_df[important_columns]
+
+    # Read sor_hist data
+    logger.info("\nReading sor_hist data...")
+    sor_hist_df = pd.read_csv('data/raw/sor_hist.csv', encoding='utf-8')
+    # Clean column names
+    sor_hist_df.columns = sor_hist_df.columns.str.strip().str.replace('"', '').str.replace(' ', '')
+    logger.info(f"SOR Hist columns: {list(sor_hist_df.columns)}")
+    logger.info(f"Read data/raw/sor_hist.csv with utf-8 encoding.")
+    logger.info("\nRaw values in sor_hist.csv:")
+    logger.info(sor_hist_df.head())
+
+    # Merge with sor_hist data
+    final_df = pd.merge(final_df, sor_hist_df[['CATALOGID', 'MODEL', 'OLDVALUE', 'NEWVALUE', 'VERUMCREATEDDATE']], on=['CATALOGID', 'MODEL'], how='left')
 
     # Save the merged data
     output_path = 'data/processed/Webserver_OS_Mapping.csv'

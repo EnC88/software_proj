@@ -5,12 +5,12 @@ import tempfile
 import os
 import logging
 from src.data_processing import process_data
-from src.vectorizer import UpgradeVectorizer
+from src.vectorizer import Vectorizer
 import time
 import shutil
 import threading
 from sqlalchemy import text
-from src.database.upgrade_db import UpgradeDatabase
+from src.database.upgrade_db import Database
 from src.cache.query_cache import QueryCache
 
 # Configure logging
@@ -77,7 +77,7 @@ class TestUpgradeSystem(unittest.TestCase):
         logger.info("Testing vectorizer...")
         
         # Initialize vectorizer with caching
-        vectorizer = UpgradeVectorizer(use_cache=True)
+        vectorizer = Vectorizer(use_cache=True)
         
         # Clear cache to ensure clean state
         vectorizer.query_cache.clear()
@@ -198,8 +198,8 @@ class TestUpgradeSystem(unittest.TestCase):
         logger.info("\nTesting edge cases...")
         
         # Initialize database and vectorizer
-        db = UpgradeDatabase()
-        vectorizer = UpgradeVectorizer(db)
+        db = Database()
+        vectorizer = Vectorizer(db)
         
         # Process test data
         process_data(self.input_file, self.output_file)
@@ -335,7 +335,7 @@ class TestUpgradeSystem(unittest.TestCase):
         results = vectorizer.query_upgrades(query)
         
         # Create new vectorizer instance
-        new_vectorizer = UpgradeVectorizer(use_cache=True)
+        new_vectorizer = Vectorizer(use_cache=True)
         cached_results = new_vectorizer.query_upgrades(query)
         self.assertEqual(results, cached_results, "Cache should persist between instances")
         
@@ -365,8 +365,8 @@ class TestUpgradeSystem(unittest.TestCase):
         logger.info("\nTesting error handling...")
         
         # Initialize database and vectorizer
-        db = UpgradeDatabase()
-        vectorizer = UpgradeVectorizer(db)
+        db = Database()
+        vectorizer = Vectorizer(db)
         
         # Test 1: Invalid query types
         logger.info("\nTest 1: Invalid query types")
@@ -475,8 +475,8 @@ class TestUpgradeSystem(unittest.TestCase):
         logger.info("\nTesting performance and resources...")
         
         # Initialize database and vectorizer
-        db = UpgradeDatabase()
-        vectorizer = UpgradeVectorizer(db)
+        db = Database()
+        vectorizer = Vectorizer(db)
         
         # Test 1: Large dataset handling
         logger.info("\nTest 1: Large dataset handling")
@@ -575,8 +575,8 @@ class TestUpgradeSystem(unittest.TestCase):
         logger.info("\nTesting stress conditions and collecting metrics...")
         
         # Initialize database and vectorizer
-        db = UpgradeDatabase()
-        vectorizer = UpgradeVectorizer(db)
+        db = Database()
+        vectorizer = Vectorizer(db)
         
         # Test 1: Extreme dataset sizes
         logger.info("\nTest 1: Extreme dataset sizes")

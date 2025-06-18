@@ -1,0 +1,15 @@
+{
+  "type": "manufacturer_summary",
+  "manufacturer": "APACHE",
+  "data": {
+    "total_servers": 26,
+    "environments": {
+      "DEV": 13,
+      "PROD": 13
+    },
+    "product_types": {
+      "('APPLICATION SERVER', 'WEB INSTANCE')": 13,
+      "('HTTP SERVER', 'WEB INSTANCE')": 13
+    }
+  }
+}

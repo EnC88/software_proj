@@ -1,0 +1,17 @@
+{
+  "type": "metadata",
+  "data": {
+    "analysis_date": "2025-06-13 14:15:14",
+    "total_servers": 50,
+    "environments": [
+      "DEV",
+      "PROD",
+      "UAT"
+    ],
+    "manufacturers": [
+      "APACHE",
+      "IBM",
+      "NGINX"
+    ]
+  }
+}

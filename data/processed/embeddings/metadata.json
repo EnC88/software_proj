@@ -1,0 +1,162 @@
+{
+  "chunk_0000": {
+    "chunk_id": "chunk_0000",
+    "text": "Metadata: {\"analysis_date\": \"2025-06-13 14:15:14\", \"total_servers\": 50, \"environments\": [\"DEV\", \"PROD\", \"UAT\"], \"manufacturers\": [\"APACHE\", \"IBM\", \"NGINX\"]}",
+    "type": "metadata"
+  },
+  "chunk_0001": {
+    "chunk_id": "chunk_0001",
+    "text": "Server websrv01 in DEV environment. Manufacturer: APACHE, Product Class: APPLICATION SERVER, Product Type: WEB INSTANCE, Model: APACHE TOMCAT 9.0, Status: Installed, Install Path: /opt/tomcat\nServer w...",
+    "type": "server_chunk"
+  },
+  "chunk_0002": {
+    "chunk_id": "chunk_0002",
+    "text": "Server websrv03 in UAT environment. Manufacturer: IBM, Product Class: APPLICATION SERVER, Product Type: WEB INSTANCE, Model: WEBSPHERE 8.5, Status: Installed, Install Path: /opt/websphere\nServer websr...",
+    "type": "server_chunk"
+  },
+  "chunk_0003": {
+    "chunk_id": "chunk_0003",
+    "text": "Server websrv05 in PROD environment. Manufacturer: APACHE, Product Class: APPLICATION SERVER, Product Type: WEB INSTANCE, Model: APACHE TOMCAT 9.0, Status: Installed, Install Path: /opt/tomcat\nServer ...",
+    "type": "server_chunk"
+  },
+  "chunk_0004": {
+    "chunk_id": "chunk_0004",
+    "text": "Server websrv07 in UAT environment. Manufacturer: IBM, Product Class: APPLICATION SERVER, Product Type: WEB INSTANCE, Model: WEBSPHERE 8.5, Status: Installed, Install Path: /opt/websphere\nServer websr...",
+    "type": "server_chunk"
+  },
+  "chunk_0005": {
+    "chunk_id": "chunk_0005",
+    "text": "Server websrv09 in DEV environment. Manufacturer: APACHE, Product Class: APPLICATION SERVER, Product Type: WEB INSTANCE, Model: APACHE TOMCAT 9.0, Status: Installed, Install Path: /opt/tomcat\nServer w...",
+    "type": "server_chunk"
+  },
+  "chunk_0006": {
+    "chunk_id": "chunk_0006",
+    "text": "Server websrv11 in UAT environment. Manufacturer: IBM, Product Class: APPLICATION SERVER, Product Type: WEB INSTANCE, Model: WEBSPHERE 8.5, Status: Installed, Install Path: /opt/websphere\nServer websr...",
+    "type": "server_chunk"
+  },
+  "chunk_0007": {
+    "chunk_id": "chunk_0007",
+    "text": "Server websrv13 in PROD environment. Manufacturer: APACHE, Product Class: APPLICATION SERVER, Product Type: WEB INSTANCE, Model: APACHE TOMCAT 9.0, Status: Installed, Install Path: /opt/tomcat\nServer ...",
+    "type": "server_chunk"
+  },
+  "chunk_0008": {
+    "chunk_id": "chunk_0008",
+    "text": "Server websrv15 in UAT environment. Manufacturer: IBM, Product Class: APPLICATION SERVER, Product Type: WEB INSTANCE, Model: WEBSPHERE 8.5, Status: Installed, Install Path: /opt/websphere\nServer websr...",
+    "type": "server_chunk"
+  },
+  "chunk_0009": {
+    "chunk_id": "chunk_0009",
+    "text": "Server websrv17 in DEV environment. Manufacturer: APACHE, Product Class: APPLICATION SERVER, Product Type: WEB INSTANCE, Model: APACHE TOMCAT 9.0, Status: Installed, Install Path: /opt/tomcat\nServer w...",
+    "type": "server_chunk"
+  },
+  "chunk_0010": {
+    "chunk_id": "chunk_0010",
+    "text": "Server websrv19 in UAT environment. Manufacturer: IBM, Product Class: APPLICATION SERVER, Product Type: WEB INSTANCE, Model: WEBSPHERE 8.5, Status: Installed, Install Path: /opt/websphere\nServer websr...",
+    "type": "server_chunk"
+  },
+  "chunk_0011": {
+    "chunk_id": "chunk_0011",
+    "text": "Server websrv21 in PROD environment. Manufacturer: APACHE, Product Class: APPLICATION SERVER, Product Type: WEB INSTANCE, Model: APACHE TOMCAT 9.0, Status: Installed, Install Path: /opt/tomcat\nServer ...",
+    "type": "server_chunk"
+  },
+  "chunk_0012": {
+    "chunk_id": "chunk_0012",
+    "text": "Server websrv23 in UAT environment. Manufacturer: IBM, Product Class: APPLICATION SERVER, Product Type: WEB INSTANCE, Model: WEBSPHERE 8.5, Status: Installed, Install Path: /opt/websphere\nServer websr...",
+    "type": "server_chunk"
+  },
+  "chunk_0013": {
+    "chunk_id": "chunk_0013",
+    "text": "Server websrv25 in DEV environment. Manufacturer: APACHE, Product Class: APPLICATION SERVER, Product Type: WEB INSTANCE, Model: APACHE TOMCAT 9.0, Status: Installed, Install Path: /opt/tomcat\nServer w...",
+    "type": "server_chunk"
+  },
+  "chunk_0014": {
+    "chunk_id": "chunk_0014",
+    "text": "Server websrv27 in UAT environment. Manufacturer: IBM, Product Class: APPLICATION SERVER, Product Type: WEB INSTANCE, Model: WEBSPHERE 8.5, Status: Installed, Install Path: /opt/websphere\nServer websr...",
+    "type": "server_chunk"
+  },
+  "chunk_0015": {
+    "chunk_id": "chunk_0015",
+    "text": "Server websrv29 in PROD environment. Manufacturer: APACHE, Product Class: APPLICATION SERVER, Product Type: WEB INSTANCE, Model: APACHE TOMCAT 9.0, Status: Installed, Install Path: /opt/tomcat\nServer ...",
+    "type": "server_chunk"
+  },
+  "chunk_0016": {
+    "chunk_id": "chunk_0016",
+    "text": "Server websrv31 in UAT environment. Manufacturer: IBM, Product Class: APPLICATION SERVER, Product Type: WEB INSTANCE, Model: WEBSPHERE 8.5, Status: Installed, Install Path: /opt/websphere\nServer websr...",
+    "type": "server_chunk"
+  },
+  "chunk_0017": {
+    "chunk_id": "chunk_0017",
+    "text": "Server websrv33 in DEV environment. Manufacturer: APACHE, Product Class: APPLICATION SERVER, Product Type: WEB INSTANCE, Model: APACHE TOMCAT 9.0, Status: Installed, Install Path: /opt/tomcat\nServer w...",
+    "type": "server_chunk"
+  },
+  "chunk_0018": {
+    "chunk_id": "chunk_0018",
+    "text": "Server websrv35 in UAT environment. Manufacturer: IBM, Product Class: APPLICATION SERVER, Product Type: WEB INSTANCE, Model: WEBSPHERE 8.5, Status: Installed, Install Path: /opt/websphere\nServer websr...",
+    "type": "server_chunk"
+  },
+  "chunk_0019": {
+    "chunk_id": "chunk_0019",
+    "text": "Server websrv37 in PROD environment. Manufacturer: APACHE, Product Class: APPLICATION SERVER, Product Type: WEB INSTANCE, Model: APACHE TOMCAT 9.0, Status: Installed, Install Path: /opt/tomcat\nServer ...",
+    "type": "server_chunk"
+  },
+  "chunk_0020": {
+    "chunk_id": "chunk_0020",
+    "text": "Server websrv39 in UAT environment. Manufacturer: IBM, Product Class: APPLICATION SERVER, Product Type: WEB INSTANCE, Model: WEBSPHERE 8.5, Status: Installed, Install Path: /opt/websphere\nServer websr...",
+    "type": "server_chunk"
+  },
+  "chunk_0021": {
+    "chunk_id": "chunk_0021",
+    "text": "Server websrv41 in DEV environment. Manufacturer: APACHE, Product Class: APPLICATION SERVER, Product Type: WEB INSTANCE, Model: APACHE TOMCAT 9.0, Status: Installed, Install Path: /opt/tomcat\nServer w...",
+    "type": "server_chunk"
+  },
+  "chunk_0022": {
+    "chunk_id": "chunk_0022",
+    "text": "Server websrv43 in UAT environment. Manufacturer: IBM, Product Class: APPLICATION SERVER, Product Type: WEB INSTANCE, Model: WEBSPHERE 8.5, Status: Installed, Install Path: /opt/websphere\nServer websr...",
+    "type": "server_chunk"
+  },
+  "chunk_0023": {
+    "chunk_id": "chunk_0023",
+    "text": "Server websrv45 in PROD environment. Manufacturer: APACHE, Product Class: APPLICATION SERVER, Product Type: WEB INSTANCE, Model: APACHE TOMCAT 9.0, Status: Installed, Install Path: /opt/tomcat\nServer ...",
+    "type": "server_chunk"
+  },
+  "chunk_0024": {
+    "chunk_id": "chunk_0024",
+    "text": "Server websrv47 in UAT environment. Manufacturer: IBM, Product Class: APPLICATION SERVER, Product Type: WEB INSTANCE, Model: WEBSPHERE 8.5, Status: Installed, Install Path: /opt/websphere\nServer websr...",
+    "type": "server_chunk"
+  },
+  "chunk_0025": {
+    "chunk_id": "chunk_0025",
+    "text": "Server websrv49 in DEV environment. Manufacturer: APACHE, Product Class: APPLICATION SERVER, Product Type: WEB INSTANCE, Model: APACHE TOMCAT 9.0, Status: Installed, Install Path: /opt/tomcat\nServer w...",
+    "type": "server_chunk"
+  },
+  "chunk_0026": {
+    "chunk_id": "chunk_0026",
+    "text": "Environment Summary for DEV: Total Servers: 19, Server Types: {\"('APACHE', 'APPLICATION SERVER', 'WEB INSTANCE')\": 7, \"('APACHE', 'HTTP SERVER', 'WEB INSTANCE')\": 6, \"('NGINX', 'HTTP SERVER', 'WEB INS...",
+    "type": "environment_summary"
+  },
+  "chunk_0027": {
+    "chunk_id": "chunk_0027",
+    "text": "Environment Summary for PROD: Total Servers: 19, Server Types: {\"('APACHE', 'APPLICATION SERVER', 'WEB INSTANCE')\": 6, \"('APACHE', 'HTTP SERVER', 'WEB INSTANCE')\": 7, \"('NGINX', 'HTTP SERVER', 'WEB IN...",
+    "type": "environment_summary"
+  },
+  "chunk_0028": {
+    "chunk_id": "chunk_0028",
+    "text": "Environment Summary for UAT: Total Servers: 12, Server Types: {\"('IBM', 'APPLICATION SERVER', 'WEB INSTANCE')\": 12}, Status Distribution: {\"Installed\": 12}",
+    "type": "environment_summary"
+  },
+  "chunk_0029": {
+    "chunk_id": "chunk_0029",
+    "text": "Manufacturer Summary for APACHE: Total Servers: 26, Environments: {\"DEV\": 13, \"PROD\": 13}, Product Types: {\"('APPLICATION SERVER', 'WEB INSTANCE')\": 13, \"('HTTP SERVER', 'WEB INSTANCE')\": 13}",
+    "type": "manufacturer_summary"
+  },
+  "chunk_0030": {
+    "chunk_id": "chunk_0030",
+    "text": "Manufacturer Summary for IBM: Total Servers: 12, Environments: {\"UAT\": 12}, Product Types: {\"('APPLICATION SERVER', 'WEB INSTANCE')\": 12}",
+    "type": "manufacturer_summary"
+  },
+  "chunk_0031": {
+    "chunk_id": "chunk_0031",
+    "text": "Manufacturer Summary for NGINX: Total Servers: 12, Environments: {\"DEV\": 6, \"PROD\": 6}, Product Types: {\"('HTTP SERVER', 'WEB INSTANCE')\": 12}",
+    "type": "manufacturer_summary"
+  }
+}

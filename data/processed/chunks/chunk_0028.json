@@ -1,0 +1,13 @@
+{
+  "type": "environment_summary",
+  "environment": "UAT",
+  "data": {
+    "total_servers": 12,
+    "server_types": {
+      "('IBM', 'APPLICATION SERVER', 'WEB INSTANCE')": 12
+    },
+    "status_distribution": {
+      "Installed": 12
+    }
+  }
+}

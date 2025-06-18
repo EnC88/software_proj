@@ -1,0 +1,14 @@
+{
+  "type": "manufacturer_summary",
+  "manufacturer": "NGINX",
+  "data": {
+    "total_servers": 12,
+    "environments": {
+      "DEV": 6,
+      "PROD": 6
+    },
+    "product_types": {
+      "('HTTP SERVER', 'WEB INSTANCE')": 12
+    }
+  }
+}
