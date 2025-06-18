@@ -42,19 +42,49 @@ class HybridEmbedder:
         self._setup_nltk()
     
     def _setup_nltk(self):
-        """Setup NLTK components."""
+        """Setup NLTK components with robust error handling."""
         try:
             # Download required NLTK data
-            nltk.download('punkt')
+            nltk.download('punkt', quiet=True)
             nltk.download('stopwords', quiet=True)
             nltk.download('averaged_perceptron_tagger', quiet=True)
             nltk.download('wordnet', quiet=True)
             nltk.download('omw-1.4', quiet=True)
             
-            self.stop_words = set(stopwords.words('english'))
-            logger.info("NLTK setup completed")
+            # Test if punkt_tab issue exists and handle it
+            try:
+                # Try to use word_tokenize to see if punkt_tab error occurs
+                test_tokens = word_tokenize("test sentence")
+                self.stop_words = set(stopwords.words('english'))
+                logger.info("NLTK setup completed successfully")
+            except LookupError as e:
+                if "punkt_tab" in str(e):
+                    logger.warning("NLTK punkt_tab bug detected, using fallback tokenization")
+                    # Use a simple fallback tokenization
+                    self._use_fallback_tokenization = True
+                    self.stop_words = set(stopwords.words('english'))
+                else:
+                    raise e
+                    
         except Exception as e:
             logger.warning(f"NLTK setup warning: {str(e)}")
+            logger.info("Using fallback tokenization methods")
+            self._use_fallback_tokenization = True
+            # Create a basic stop words set
+            self.stop_words = {
+                'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from',
+                'has', 'he', 'in', 'is', 'it', 'its', 'of', 'on', 'that', 'the',
+                'to', 'was', 'will', 'with', 'this', 'but', 'they', 'have',
+                'had', 'what', 'said', 'each', 'which', 'she', 'do', 'how', 'their'
+            }
+    
+    def _fallback_tokenize(self, text: str) -> List[str]:
+        """Fallback tokenization when NLTK punkt_tab fails."""
+        # Simple regex-based tokenization
+        import re
+        # Split on whitespace and punctuation
+        tokens = re.findall(r'\b\w+\b', text.lower())
+        return tokens
     
     def _get_wordnet_pos(self, treebank_tag):
         """Convert POS tag to WordNet POS tag."""
@@ -74,11 +104,45 @@ class HybridEmbedder:
         # Remove special characters but keep spaces
         text = re.sub(r'[^a-zA-Z\s]', ' ', text)
         
-        # Tokenize
-        tokens = word_tokenize(text)
+        # Tokenize - use fallback if NLTK punkt_tab fails
+        try:
+            if hasattr(self, '_use_fallback_tokenization') and self._use_fallback_tokenization:
+                tokens = self._fallback_tokenize(text)
+                # Simple processing for fallback mode
+                processed_tokens = []
+                for token in tokens:
+                    if token not in self.stop_words and len(token) > 2:
+                        processed_tokens.append(token)
+                return ' '.join(processed_tokens)
+            else:
+                tokens = word_tokenize(text)
+        except LookupError as e:
+            if "punkt_tab" in str(e):
+                logger.warning("punkt_tab error in tokenization, using fallback")
+                tokens = self._fallback_tokenize(text)
+                # Simple processing for fallback mode
+                processed_tokens = []
+                for token in tokens:
+                    if token not in self.stop_words and len(token) > 2:
+                        processed_tokens.append(token)
+                return ' '.join(processed_tokens)
+            else:
+                raise e
         
         # POS tagging for better lemmatization
-        pos_tags = pos_tag(tokens)
+        try:
+            pos_tags = pos_tag(tokens)
+        except LookupError as e:
+            logger.warning(f"POS tagging failed: {str(e)}, using simple processing")
+            # Fallback to simple processing without POS tagging
+            processed_tokens = []
+            for token in tokens:
+                if token not in self.stop_words and len(token) > 2:
+                    # Simple lemmatization without POS
+                    lemmatized = self.lemmatizer.lemmatize(token)
+                    if lemmatized.isalpha():
+                        processed_tokens.append(lemmatized)
+            return ' '.join(processed_tokens)
         
         # Lemmatize and filter
         processed_tokens = []

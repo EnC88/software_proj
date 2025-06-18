@@ -1,0 +1,7 @@
+{
+  "total_vectors": 32,
+  "dimension": 300,
+  "index_type": "IndexFlatL2",
+  "embedding_model": "simple-tfidf",
+  "created_at": "/Users/emilycho/Downloads/software_compatibility_project"
+}

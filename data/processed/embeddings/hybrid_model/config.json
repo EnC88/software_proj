@@ -1,0 +1,1 @@
+{"max_features": 5000, "embedding_dim": 300, "is_fitted": true, "model_type": "hybrid-nltk-sklearn"}
