@@ -162,19 +162,21 @@ class QueryEngine:
                 context_parts.append(f"System Information:\n{json.dumps(content.get('data', {}), indent=2)}")
             
             elif chunk_type == 'server_chunk':
-                server_info = []
+                # Group servers by model and product_type
+                model_env_map = {}
                 for server in content.get('servers', []):
-                    server_info.append(
-                        f"Server: {server.get('name', 'Unknown')}\n"
-                        f"Environment: {server.get('environment', 'Unknown')}\n"
-                        f"Manufacturer: {server.get('server_info', {}).get('manufacturer', 'Unknown')}\n"
-                        f"Product Class: {server.get('server_info', {}).get('product_class', 'Unknown')}\n"
-                        f"Product Type: {server.get('server_info', {}).get('product_type', 'Unknown')}\n"
-                        f"Model: {server.get('server_info', {}).get('model', 'Unknown')}\n"
-                        f"Status: {server.get('server_info', {}).get('status', 'Unknown')}\n"
-                        f"Install Path: {server.get('deployment_info', {}).get('install_path', 'Unknown')}\n"
-                    )
-                context_parts.append("Server Information:\n" + "\n".join(server_info))
+                    model = server.get('server_info', {}).get('model', 'Unknown')
+                    product_type = server.get('server_info', {}).get('product_type', 'Unknown')
+                    env = server.get('environment', 'Unknown')
+                    key = f"{model} ({product_type})"
+                    if key not in model_env_map:
+                        model_env_map[key] = set()
+                    model_env_map[key].add(env)
+                model_lines = []
+                for model, envs in model_env_map.items():
+                    envs_str = ', '.join(sorted(envs))
+                    model_lines.append(f"Model: {model} [Environments: {envs_str}]")
+                context_parts.append("Software Models:\n" + "\n".join(model_lines))
             
             elif chunk_type == 'environment_summary':
                 context_parts.append(
