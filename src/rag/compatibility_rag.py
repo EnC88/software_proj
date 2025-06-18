@@ -17,6 +17,7 @@ class CompatibilityRAG:
     def __init__(
         self,
         embedding_model_name: str = 'all-MiniLM-L6-v2',
+        embedding_model_path: str = None,
         # Use a tiny model for local CPU inference. For better quality, switch to a larger model or API.
         llm_model_name: str = 'sshleifer/tiny-gpt2',
         data_dir: str = 'data/processed',
@@ -24,13 +25,19 @@ class CompatibilityRAG:
     ):
         """Initialize the RAG pipeline."""
         self.embedding_model_name = embedding_model_name
+        self.embedding_model_path = embedding_model_path
         self.llm_model_name = llm_model_name
         self.data_dir = Path(data_dir)
         self.top_k = top_k
         
         # Initialize embedding model
-        logger.info(f"Loading embedding model: {embedding_model_name}")
-        self.embedding_model = SentenceTransformer(embedding_model_name)
+        if embedding_model_path and os.path.exists(embedding_model_path):
+            logger.info(f"Loading local embedding model from: {embedding_model_path}")
+            self.embedding_model = SentenceTransformer(embedding_model_path)
+        else:
+            logger.info(f"Loading embedding model: {embedding_model_name}")
+            self.embedding_model = SentenceTransformer(embedding_model_name)
+        
         self.device = 'cpu'  # Force CPU for stability on Mac
         self.embedding_model.to(self.device)
         
@@ -199,8 +206,18 @@ class CompatibilityRAG:
         }
 
 def main():
-    # Initialize RAG pipeline
-    rag = CompatibilityRAG()
+    # Check for local model first
+    local_model_path = './models/all-MiniLM-L6-v2'
+    
+    if os.path.exists(local_model_path):
+        logger.info("Using local model for offline RAG processing")
+        rag = CompatibilityRAG(embedding_model_path=local_model_path)
+    else:
+        logger.info("No local model found, attempting to download...")
+        logger.info("If you're behind a firewall, please:")
+        logger.info("1. Run: python download_model_offline.py")
+        logger.info("2. Or manually download model to: ./models/all-MiniLM-L6-v2/")
+        rag = CompatibilityRAG()
     
     # Example queries
     example_queries = [

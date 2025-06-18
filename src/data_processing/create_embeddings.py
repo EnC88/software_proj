@@ -5,16 +5,27 @@ from typing import List, Dict, Any
 import numpy as np
 from sentence_transformers import SentenceTransformer
 import torch
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 class CompatibilityEmbedder:
-    def __init__(self, model_name: str = 'all-MiniLM-L6-v2'):
-        """Initialize the embedder with a local model."""
-        logger.info(f"Loading model: {model_name}")
-        self.model = SentenceTransformer(model_name)
+    def __init__(self, model_name: str = 'all-MiniLM-L6-v2', model_path: str = None):
+        """Initialize the embedder with a local model.
+        
+        Args:
+            model_name: Name of the model (used if model_path is None)
+            model_path: Local path to model (for offline usage)
+        """
+        if model_path and os.path.exists(model_path):
+            logger.info(f"Loading local model from: {model_path}")
+            self.model = SentenceTransformer(model_path)
+        else:
+            logger.info(f"Loading model: {model_name}")
+            self.model = SentenceTransformer(model_name)
+        
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.model.to(self.device)
         logger.info(f"Using device: {self.device}")
@@ -124,8 +135,18 @@ class CompatibilityEmbedder:
         logger.info(f"Saved metadata to {metadata_file}")
 
 def main():
-    # Initialize embedder
-    embedder = CompatibilityEmbedder()
+    # Check for local model first
+    local_model_path = './models/all-MiniLM-L6-v2'
+    
+    if os.path.exists(local_model_path):
+        logger.info("Using local model for offline processing")
+        embedder = CompatibilityEmbedder(model_path=local_model_path)
+    else:
+        logger.info("No local model found, attempting to download...")
+        logger.info("If you're behind a firewall, please:")
+        logger.info("1. Run: python download_model_offline.py")
+        logger.info("2. Or manually download model to: ./models/all-MiniLM-L6-v2/")
+        embedder = CompatibilityEmbedder()
     
     # Load chunks
     chunks = embedder.load_chunks()

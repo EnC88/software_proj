@@ -47,7 +47,11 @@ class Vectorizer:
         """Get the local model path, downloading if necessary."""
         if self.model_path:
             # Use provided local path
-            return self.model_path
+            if os.path.exists(self.model_path):
+                logger.info(f"Using local model at: {self.model_path}")
+                return self.model_path
+            else:
+                raise FileNotFoundError(f"Model path not found: {self.model_path}. Please download the model first using download_model_offline.py")
         
         # Create local cache directory
         cache_dir = Path.home() / '.cache' / 'sentence_transformers'
@@ -59,16 +63,13 @@ class Vectorizer:
             logger.info(f"Using cached model at: {model_dir}")
             return str(model_dir)
         
-        # Download and cache the model
-        logger.info(f"Downloading model {self.model_name} to {model_dir}...")
-        try:
-            # This will download the model to the cache directory
-            model = sentence_transformers.SentenceTransformer(self.model_name, cache_folder=str(cache_dir))
-            logger.info(f"Model downloaded and cached successfully at: {model_dir}")
-            return str(model_dir)
-        except Exception as e:
-            logger.error(f"Failed to download model: {str(e)}")
-            raise
+        # If we get here, we need to download - but only if we have internet
+        logger.error(f"Model not found locally and no internet access available.")
+        logger.error(f"Please download the model first using one of these methods:")
+        logger.error(f"1. Run: python download_model_offline.py")
+        logger.error(f"2. Or manually download to: {model_dir}")
+        logger.error(f"3. Or specify model_path parameter with local path")
+        raise FileNotFoundError(f"Model {self.model_name} not found locally. Download required.")
         
     def _initialize_model(self):
         """Initialize the model with caching and thread safety."""
