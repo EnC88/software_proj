@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Example Usage of Vectorizer with Sentence Transformers
+Shows both online and offline usage options
 """
 
 import pandas as pd
@@ -32,32 +33,35 @@ def main():
     
     logger.info("🚀 Example: Using Sentence Transformers")
     
-    # Initialize vectorizer
-    vectorizer = Vectorizer(
+    # Option 1: Online usage (default - will cache locally)
+    logger.info("\n" + "="*60)
+    logger.info("🌐 ONLINE USAGE (with local caching)")
+    logger.info("="*60)
+    
+    vectorizer_online = Vectorizer(
         use_database=False,  # Disable database for this example
         use_cache=True,
-        model_name='all-MiniLM-L6-v2'  # Fast and efficient
+        model_name='all-MiniLM-L6-v2'  # Will download and cache locally
     )
     
     # Set data and vectorize
-    vectorizer.chunked_df = df
-    vectorizer.vectorize()
+    vectorizer_online.chunked_df = df
+    vectorizer_online.vectorize()
     
     # Get model info
-    model_info = vectorizer.get_model_info()
+    model_info = vectorizer_online.get_model_info()
     logger.info(f"Model Info: {model_info}")
     
     # Test queries
     test_queries = [
         "How to upgrade Apache?",
         "What are MySQL upgrade issues?",
-        "WebSphere patch procedures",
-        "Tomcat rollback process"
+        "WebSphere patch procedures"
     ]
     
     for query in test_queries:
         logger.info(f"\nQuery: {query}")
-        results = vectorizer.query_upgrades(query, top_k=3)
+        results = vectorizer_online.query_upgrades(query, top_k=2)
         
         if results:
             logger.info(f"Found {len(results)} similar upgrades:")
@@ -67,12 +71,44 @@ def main():
         else:
             logger.info("No similar upgrades found")
     
+    # Option 2: Offline usage (if you have a local model)
+    logger.info("\n" + "="*60)
+    logger.info("🔒 OFFLINE USAGE (with local model)")
+    logger.info("="*60)
+    
+    # Check if local model exists
+    import os
+    local_model_path = './models/all-MiniLM-L6-v2'
+    
+    if os.path.exists(local_model_path):
+        logger.info(f"Using local model: {local_model_path}")
+        
+        vectorizer_offline = Vectorizer(
+            use_database=False,
+            use_cache=True,
+            model_name='all-MiniLM-L6-v2',
+            model_path=local_model_path  # Use local model path
+        )
+        
+        vectorizer_offline.chunked_df = df
+        vectorizer_offline.vectorize()
+        
+        # Test offline query
+        results = vectorizer_offline.query_upgrades("How to upgrade Apache?", top_k=2)
+        logger.info(f"Offline query found {len(results)} results")
+        
+    else:
+        logger.info("No local model found. To use offline:")
+        logger.info("1. Run: python download_model_offline.py")
+        logger.info("2. Or run: python offline_alternatives.py")
+        logger.info("3. Then use model_path parameter")
+    
     # Performance benchmark
     logger.info("\n" + "="*60)
     logger.info("📊 Performance Benchmark")
     logger.info("="*60)
     
-    benchmark_results = vectorizer.benchmark_model()
+    benchmark_results = vectorizer_online.benchmark_model()
     
     logger.info("\n💡 Benefits of Sentence Transformers:")
     logger.info("✅ Fast processing (10-20x faster than alternatives)")
@@ -80,6 +116,7 @@ def main():
     logger.info("✅ Memory efficient for large datasets")
     logger.info("✅ Good multilingual support")
     logger.info("✅ Easy deployment and maintenance")
+    logger.info("✅ Works offline with local models")
 
 if __name__ == "__main__":
     main() 

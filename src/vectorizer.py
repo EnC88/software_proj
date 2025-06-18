@@ -9,6 +9,8 @@ import time
 from functools import lru_cache
 import threading
 from sqlalchemy import text
+import os
+from pathlib import Path
 
 from .models.query_parser import QueryParser
 from .database.upgrade_db import Database
@@ -20,17 +22,19 @@ logger = logging.getLogger(__name__)
 
 class Vectorizer:
     def __init__(self, use_database: bool = True, use_cache: bool = True, 
-                 model_name: str = 'all-MiniLM-L6-v2'):
+                 model_name: str = 'all-MiniLM-L6-v2', model_path: str = None):
         """Initialize the vectorizer with caching and performance optimizations.
         
         Args:
             use_database: Whether to use database storage
             use_cache: Whether to use query caching
             model_name: Model name for sentence transformers
+            model_path: Local path to model (if None, will use model_name and cache locally)
         """
         self.use_database = use_database
         self.use_cache = use_cache
         self.model_name = model_name
+        self.model_path = model_path
         self.db = Database() if use_database else None
         self.model = None
         self.model_lock = threading.Lock()
@@ -39,14 +43,45 @@ class Vectorizer:
         self.query_cache = QueryCache() if use_cache else None
         self._initialize_model()
         
+    def _get_model_path(self) -> str:
+        """Get the local model path, downloading if necessary."""
+        if self.model_path:
+            # Use provided local path
+            return self.model_path
+        
+        # Create local cache directory
+        cache_dir = Path.home() / '.cache' / 'sentence_transformers'
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Check if model is already cached locally
+        model_dir = cache_dir / self.model_name
+        if model_dir.exists():
+            logger.info(f"Using cached model at: {model_dir}")
+            return str(model_dir)
+        
+        # Download and cache the model
+        logger.info(f"Downloading model {self.model_name} to {model_dir}...")
+        try:
+            # This will download the model to the cache directory
+            model = sentence_transformers.SentenceTransformer(self.model_name, cache_folder=str(cache_dir))
+            logger.info(f"Model downloaded and cached successfully at: {model_dir}")
+            return str(model_dir)
+        except Exception as e:
+            logger.error(f"Failed to download model: {str(e)}")
+            raise
+        
     def _initialize_model(self):
         """Initialize the model with caching and thread safety."""
         if self.model is None:
             with self.model_lock:
                 if self.model is None:  # Double-check pattern
-                    logger.info(f"Loading Sentence Transformer model: {self.model_name}")
                     try:
-                        self.model = sentence_transformers.SentenceTransformer(self.model_name)
+                        # Get local model path
+                        local_model_path = self._get_model_path()
+                        logger.info(f"Loading Sentence Transformer model from: {local_model_path}")
+                        
+                        # Load from local path
+                        self.model = sentence_transformers.SentenceTransformer(local_model_path)
                         logger.info("Sentence Transformer model loaded successfully")
                     except Exception as e:
                         logger.error(f"Error loading Sentence Transformer model: {str(e)}")
