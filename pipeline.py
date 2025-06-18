@@ -72,7 +72,7 @@ def check_prerequisites() -> bool:
     # Check required scripts
     required_scripts = [
         'src/data_processing/chunk_compatibility.py',
-        'src/data_processing/spacy_embedder.py',
+        'src/data_processing/hybrid_embedder.py',
         'src/data_processing/build_faiss_index.py',
         'src/rag/query_engine.py'
     ]
@@ -104,8 +104,8 @@ def main():
         },
         {
             'name': 'Embedding',
-            'script': 'src/data_processing/spacy_embedder.py',
-            'description': 'Generate embeddings using spaCy transformer model'
+            'script': 'src/data_processing/hybrid_embedder.py',
+            'description': 'Generate embeddings using hybrid NLTK + TF-IDF approach'
         },
         {
             'name': 'Indexing',
