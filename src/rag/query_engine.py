@@ -1,0 +1,254 @@
+#!/usr/bin/env python3
+"""
+Query Engine for RAG Pipeline
+Loads FAISS index and spaCy model for similarity search
+"""
+
+import json
+import logging
+from pathlib import Path
+from typing import List, Dict, Any, Optional
+import numpy as np
+import faiss
+import spacy
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+class QueryEngine:
+    """Production-ready query engine for RAG pipeline."""
+    
+    def __init__(self, 
+                 model_name: str = 'en_core_web_trf',
+                 index_path: str = 'data/processed/faiss_index/index.faiss',
+                 id_to_chunk_path: str = 'data/processed/faiss_index/id_to_chunk.json',
+                 metadata_path: str = 'data/processed/embeddings/metadata.json',
+                 chunks_dir: str = 'data/processed/chunks'):
+        """Initialize the query engine.
+        
+        Args:
+            model_name: spaCy model name
+            index_path: Path to FAISS index
+            id_to_chunk_path: Path to id-to-chunk mapping
+            metadata_path: Path to embeddings metadata
+            chunks_dir: Directory containing chunk files
+        """
+        self.model_name = model_name
+        self.index_path = Path(index_path)
+        self.id_to_chunk_path = Path(id_to_chunk_path)
+        self.metadata_path = Path(metadata_path)
+        self.chunks_dir = Path(chunks_dir)
+        
+        # Initialize components
+        self.nlp = None
+        self.index = None
+        self.id_to_chunk = {}
+        self.metadata = {}
+        self.chunks = {}
+        
+        self._load_components()
+    
+    def _load_components(self):
+        """Load all required components."""
+        try:
+            # Load spaCy model
+            logger.info(f"Loading spaCy model: {self.model_name}")
+            self.nlp = spacy.load(self.model_name)
+            logger.info("spaCy model loaded successfully")
+            
+            # Load FAISS index
+            logger.info(f"Loading FAISS index from {self.index_path}")
+            self.index = faiss.read_index(str(self.index_path))
+            logger.info(f"FAISS index loaded with {self.index.ntotal} vectors")
+            
+            # Load id-to-chunk mapping
+            logger.info(f"Loading id-to-chunk mapping from {self.id_to_chunk_path}")
+            with open(self.id_to_chunk_path, 'r') as f:
+                self.id_to_chunk = json.load(f)
+            logger.info(f"Loaded {len(self.id_to_chunk)} id-to-chunk mappings")
+            
+            # Load metadata
+            logger.info(f"Loading metadata from {self.metadata_path}")
+            with open(self.metadata_path, 'r') as f:
+                self.metadata = json.load(f)
+            logger.info(f"Loaded metadata for {len(self.metadata)} chunks")
+            
+            # Load chunks
+            logger.info(f"Loading chunks from {self.chunks_dir}")
+            for chunk_file in sorted(self.chunks_dir.glob('chunk_*.json')):
+                with open(chunk_file, 'r') as f:
+                    chunk_data = json.load(f)
+                    chunk_id = chunk_file.stem
+                    self.chunks[chunk_id] = chunk_data
+            logger.info(f"Loaded {len(self.chunks)} chunks")
+            
+        except Exception as e:
+            logger.error(f"Error loading components: {str(e)}")
+            raise
+    
+    def query(self, query_text: str, top_k: int = 5) -> List[Dict[str, Any]]:
+        """Query the index for similar chunks.
+        
+        Args:
+            query_text: The query text
+            top_k: Number of top results to return
+            
+        Returns:
+            List of dictionaries containing chunk info and similarity scores
+        """
+        try:
+            # Embed the query
+            query_doc = self.nlp(query_text)
+            query_embedding = query_doc.vector.reshape(1, -1).astype(np.float32)
+            
+            # Search the index
+            distances, indices = self.index.search(query_embedding, top_k)
+            
+            # Format results
+            results = []
+            for idx, distance in zip(indices[0], distances[0]):
+                if idx == -1:  # FAISS returns -1 for invalid indices
+                    continue
+                    
+                chunk_id = self.id_to_chunk[str(idx)]
+                chunk_data = self.chunks.get(chunk_id, {})
+                chunk_metadata = self.metadata.get(chunk_id, {})
+                
+                # Convert distance to similarity score (0-1, higher is better)
+                similarity_score = 1 / (1 + distance)
+                
+                result = {
+                    'chunk_id': chunk_id,
+                    'similarity_score': float(similarity_score),
+                    'distance': float(distance),
+                    'chunk_type': chunk_data.get('type', 'unknown'),
+                    'content': chunk_data,
+                    'metadata': chunk_metadata
+                }
+                results.append(result)
+            
+            logger.info(f"Query returned {len(results)} results")
+            return results
+            
+        except Exception as e:
+            logger.error(f"Error during query: {str(e)}")
+            return []
+    
+    def format_results_for_llm(self, results: List[Dict[str, Any]]) -> str:
+        """Format query results for use with an LLM.
+        
+        Args:
+            results: Query results from self.query()
+            
+        Returns:
+            Formatted string for LLM context
+        """
+        if not results:
+            return "No relevant information found."
+        
+        context_parts = []
+        for i, result in enumerate(results, 1):
+            chunk_type = result['chunk_type']
+            content = result['content']
+            similarity = result['similarity_score']
+            
+            context_parts.append(f"--- Result {i} (similarity: {similarity:.3f}) ---")
+            
+            if chunk_type == 'metadata':
+                context_parts.append(f"System Information:\n{json.dumps(content.get('data', {}), indent=2)}")
+            
+            elif chunk_type == 'server_chunk':
+                server_info = []
+                for server in content.get('servers', []):
+                    server_info.append(
+                        f"Server: {server.get('name', 'Unknown')}\n"
+                        f"Environment: {server.get('environment', 'Unknown')}\n"
+                        f"Manufacturer: {server.get('server_info', {}).get('manufacturer', 'Unknown')}\n"
+                        f"Product Class: {server.get('server_info', {}).get('product_class', 'Unknown')}\n"
+                        f"Product Type: {server.get('server_info', {}).get('product_type', 'Unknown')}\n"
+                        f"Model: {server.get('server_info', {}).get('model', 'Unknown')}\n"
+                        f"Status: {server.get('server_info', {}).get('status', 'Unknown')}\n"
+                        f"Install Path: {server.get('deployment_info', {}).get('install_path', 'Unknown')}\n"
+                    )
+                context_parts.append("Server Information:\n" + "\n".join(server_info))
+            
+            elif chunk_type == 'environment_summary':
+                context_parts.append(
+                    f"Environment Summary for {content.get('environment', 'Unknown')}:\n"
+                    f"Total Servers: {content.get('data', {}).get('total_servers', 'Unknown')}\n"
+                    f"Server Types: {json.dumps(content.get('data', {}).get('server_types', {}), indent=2)}\n"
+                    f"Status Distribution: {json.dumps(content.get('data', {}).get('status_distribution', {}), indent=2)}"
+                )
+            
+            elif chunk_type == 'manufacturer_summary':
+                context_parts.append(
+                    f"Manufacturer Summary for {content.get('manufacturer', 'Unknown')}:\n"
+                    f"Total Servers: {content.get('data', {}).get('total_servers', 'Unknown')}\n"
+                    f"Environments: {json.dumps(content.get('data', {}).get('environments', {}), indent=2)}\n"
+                    f"Product Types: {json.dumps(content.get('data', {}).get('product_types', {}), indent=2)}"
+                )
+            
+            context_parts.append("")  # Add spacing
+        
+        return "\n".join(context_parts)
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get statistics about the loaded data."""
+        return {
+            'model_name': self.model_name,
+            'index_size': self.index.ntotal if self.index else 0,
+            'chunks_loaded': len(self.chunks),
+            'metadata_entries': len(self.metadata),
+            'embedding_dimension': self.nlp.vocab.vectors.shape[1] if self.nlp and self.nlp.vocab.vectors.shape[1] > 0 else 768
+        }
+
+
+def main():
+    """Test the query engine."""
+    try:
+        # Initialize query engine
+        engine = QueryEngine()
+        
+        # Get stats
+        stats = engine.get_stats()
+        print("Query Engine Stats:")
+        for key, value in stats.items():
+            print(f"  {key}: {value}")
+        
+        # Test queries
+        test_queries = [
+            "What servers are compatible with Windows Server 2019?",
+            "Which environments have the most Dell servers?",
+            "What is the status of servers in the Production environment?",
+            "Which manufacturer has the most diverse product types?"
+        ]
+        
+        for query in test_queries:
+            print(f"\n{'='*60}")
+            print(f"Query: {query}")
+            print(f"{'='*60}")
+            
+            results = engine.query(query, top_k=3)
+            
+            if results:
+                print(f"Found {len(results)} relevant results:")
+                for i, result in enumerate(results, 1):
+                    print(f"\n{i}. Chunk ID: {result['chunk_id']}")
+                    print(f"   Type: {result['chunk_type']}")
+                    print(f"   Similarity: {result['similarity_score']:.3f}")
+                
+                # Format for LLM
+                llm_context = engine.format_results_for_llm(results)
+                print(f"\nLLM Context (first 500 chars):")
+                print(llm_context[:500] + "..." if len(llm_context) > 500 else llm_context)
+            else:
+                print("No results found.")
+        
+    except Exception as e:
+        logger.error(f"Error in main: {str(e)}")
+        print(f"Error: {str(e)}")
+
+
+if __name__ == "__main__":
+    main() 
