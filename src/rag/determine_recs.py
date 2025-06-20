@@ -14,6 +14,7 @@ import pandas as pd
 from collections import Counter
 from collections import defaultdict
 from src.rag.query_engine import QueryEngine
+from src.models.query_parser import QueryParser
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -491,31 +492,124 @@ class CompatibilityAnalyzer:
         
         return "\n".join(output)
 
+    def parse_multiple_change_requests(self, text: str) -> List[ChangeRequest]:
+        """Parse a natural language request into multiple ChangeRequest objects (one per software/version), with per-software action detection using QueryParser's intent patterns."""
+        parser = QueryParser()
+        context = parser.parse_query(text)
+        detected_software = context.get('detected_software', [])
+        detected_versions = context.get('detected_versions', [])
+        primary_intent = context.get('primary_intent', 'upgrade')
+        text_lower = text.lower()
+
+        # Automatically extract action keywords from QueryParser's intent_patterns
+        action_intents = ['upgrade', 'install', 'remove', 'downgrade', 'rollback']
+        all_action_words = []
+        for intent in action_intents:
+            for pattern in parser.intent_patterns.get(intent, []):
+                all_action_words.append((intent, pattern))
+        # Fallback: if no action keywords found, use all patterns
+        if not all_action_words:
+            for intent, patterns in parser.intent_patterns.items():
+                for pattern in patterns:
+                    all_action_words.append((intent, pattern))
+
+        # Find all software and their positions
+        software_positions = []
+        for software in detected_software:
+            for match in re.finditer(re.escape(software.lower()), text_lower):
+                software_positions.append((software, match.start()))
+
+        # Find all version numbers and their positions
+        version_pattern = r'\d+\.\d+(?:\.\d+)?'
+        version_positions = [(m.group(), m.start()) for m in re.finditer(version_pattern, text_lower)]
+
+        # Find all action keywords and their positions
+        action_positions = []
+        for canonical, word in all_action_words:
+            for match in re.finditer(re.escape(word), text_lower):
+                action_positions.append((canonical, match.start()))
+
+        # Sort by position in text
+        software_positions.sort(key=lambda x: x[1])
+        version_positions.sort(key=lambda x: x[1])
+        action_positions.sort(key=lambda x: x[1])
+
+        # Pair each software with the nearest version (after it), and nearest action (before or after)
+        change_requests = []
+        for i, (software, s_pos) in enumerate(software_positions):
+            # Find nearest version after software
+            version = None
+            for v, v_pos in version_positions:
+                if v_pos > s_pos:
+                    version = v
+                    break
+            # Find nearest action keyword (before or after software)
+            nearest_action = primary_intent
+            min_dist = None
+            for action, a_pos in action_positions:
+                dist = abs(a_pos - s_pos)
+                if min_dist is None or dist < min_dist:
+                    min_dist = dist
+                    nearest_action = action
+            change_requests.append(ChangeRequest(
+                software_name=software,
+                version=version,
+                action=nearest_action,
+                raw_text=text
+            ))
+        # If no software detected, fallback to single parse
+        if not change_requests:
+            cr = self.parse_change_request(text)
+            change_requests = [cr] if cr else []
+        return change_requests
+
+    def analyze_multiple_compatibility(self, change_requests: List[ChangeRequest]) -> List[Tuple[ChangeRequest, CompatibilityResult]]:
+        """Analyze compatibility for multiple change requests."""
+        results = []
+        for cr in change_requests:
+            result = self.analyze_compatibility(cr)
+            results.append((cr, result))
+        return results
+
+    def format_multiple_results(self, results: List[Tuple[ChangeRequest, CompatibilityResult]]) -> str:
+        """Format multiple compatibility results for display."""
+        output = []
+        for cr, result in results:
+            output.append(self.format_analysis_result(result, cr))
+            output.append("\n" + ("-" * 80) + "\n")
+        return "\n".join(output)
+
 def main():
     """Test the compatibility analyzer."""
     analyzer = CompatibilityAnalyzer()
     
-    # Test cases
+    # Example queries for multi-upgrade, multi-action parsing and analysis
     test_requests = [
-        "I want to upgrade Apache to 2.4.50",
-        "Can I install Python 3.11 on my servers?",
-        "I need to upgrade WebSphere to 8.5 in production",
-        "Install nginx on development servers"
+        "Upgrade Apache 2.4.50 and Tomcat 9.0.0 in production",  # two upgrades
+        "Install NGINX 1.18 and remove Apache HTTPD 2.4 from dev",  # install + remove
+        "Rollback WebSphere 8.5, upgrade Apache HTTPD 2.4, and install Python 3.11 on UAT",  # rollback + upgrade + install
+        "Remove Tomcat and downgrade MySQL 8.0 in staging",  # remove + downgrade
+        "Upgrade IBM HTTP SERVER 9.0.0 and APACHE HTTP SERVER 2.2.24",  # two upgrades, different phrasing
+        "Uninstall Apache, add NGINX, and update Python to 3.10 in dev",  # remove + install + upgrade
+        "Upgrade Apache and Tomcat",  # two upgrades, no versions
+        "Install WebSphere and Python 3.9 in production",  # install, one with version
+        "Rollback Java 11 and remove Node.js from UAT",  # rollback + remove
+        "Upgrade Apache, remove Tomcat, and install NGINX in prod"  # upgrade + remove + install
     ]
     
     for request_text in test_requests:
         print("\n" + "="*80)
         
-        # Parse request
-        change_request = analyzer.parse_change_request(request_text)
-        print(f"Parsed Request: {change_request}")
+        # Parse requests
+        change_requests = analyzer.parse_multiple_change_requests(request_text)
+        print(f"Parsed Requests: {change_requests}")
         
         # Analyze compatibility
-        result = analyzer.analyze_compatibility(change_request)
+        results = analyzer.analyze_multiple_compatibility(change_requests)
         
-        # Format and display result
-        formatted_result = analyzer.format_analysis_result(result, change_request)
-        print(formatted_result)
+        # Format and display results
+        formatted_results = analyzer.format_multiple_results(results)
+        print(formatted_results)
 
 if __name__ == "__main__":
     main() 
