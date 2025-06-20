@@ -11,6 +11,9 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
 import pandas as pd
+from collections import Counter
+from collections import defaultdict
+from ..rag.query_engine import QueryEngine
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -54,6 +57,8 @@ class CompatibilityAnalyzer:
         self.rules = {}
         self.analysis = {}
         self.server_data = {}
+        self.query_engine = QueryEngine()
+        self.known_software_families = ["APACHE", "WEBSPHERE", "IBM HTTP SERVER", "NGINX", "TOMCAT", "MYSQL", "POSTGRESQL", "PYTHON", "JAVA"] # For parsing RAG results
         
         self._load_data()
     
@@ -190,6 +195,23 @@ class CompatibilityAnalyzer:
         warnings = []
         alternative_versions = []
         
+        # --- Dynamically find dependencies using the RAG Query Engine ---
+        software_to_show_families = [change_request.software_name.upper()]
+        try:
+            dependency_query = f"What are the dependencies and compatible software for {change_request.software_name}?"
+            rag_results = self.query_engine.query(dependency_query, top_k=3)
+            if rag_results:
+                context = self.query_engine.format_results_for_llm(rag_results)
+                # Parse context for other known software families
+                import re
+                found_deps = re.findall(r'|'.join(self.known_software_families), context.upper())
+                software_to_show_families.extend(found_deps)
+                software_to_show_families = list(set(software_to_show_families))
+            logger.info(f"Analyzing compatibility for: {software_to_show_families}")
+        except Exception as e:
+            logger.error(f"Could not query RAG for dependencies: {e}")
+            # Proceed with only the user-specified software
+        
         # Find affected servers
         if change_request.environment:
             # Filter by environment
@@ -253,17 +275,77 @@ class CompatibilityAnalyzer:
             if upgrade_frequency:
                 recommendations.append(f"Upgrade frequency for {change_request.environment}: {upgrade_frequency}")
         
-        # Check for existing installations
+        # --- Find existing installations of target software and its dependencies ---
+        
         existing_installations = []
         for server in affected_servers:
-            if self._has_software_installed(server, change_request.software_name):
-                existing_installations.append(server['name'])
+            model_full = server.get('server_info', {}).get('model', 'Unknown')
+            if model_full == 'Unknown':
+                continue
+            
+            env = server.get('environment', 'Unknown')
+            
+            # Check if this server's software is one of the families we're interested in
+            current_product_family = ""
+            for family_to_show in software_to_show_families:
+                if family_to_show in model_full.upper():
+                    current_product_family = family_to_show # Use the matched keyword as the family
+                    break
+            
+            if not current_product_family:
+                continue
+
+            # Extract version
+            import re
+            version_match = re.search(r'(\d+\.\d+(?:\.\d+)?)', model_full)
+            version = version_match.group(1) if version_match else "0.0"
+
+            existing_installations.append((current_product_family, version, env))
         
+        threshold = 50
         if existing_installations:
-            if change_request.action == 'install':
-                warnings.append(f"Software already installed on: {', '.join(existing_installations)}")
-            elif change_request.action == 'upgrade':
-                recommendations.append(f"Upgrading existing installations on: {', '.join(existing_installations)}")
+            # Group by product_family and collect all versions and environments
+            product_groups = defaultdict(lambda: defaultdict(list))
+            for product_family, version, env in existing_installations:
+                product_groups[product_family]['versions'].append(version)
+                product_groups[product_family]['envs'].append(env)
+            
+            # For each product, find the highest version and aggregate counts/envs
+            qualifying_products = []
+            for product_family, data in product_groups.items():
+                total_servers = len(data['versions'])
+                
+                if total_servers >= threshold:
+                    highest_version = "0.0"
+                    if data['versions']:
+                        try:
+                            highest_version = max(data['versions'], key=lambda v: [int(n) for n in v.split('.') if n.isdigit()])
+                        except ValueError:
+                            # Handle cases where version string might be non-numeric
+                            pass
+                    environments = sorted(list(set(data['envs'])))
+                    qualifying_products.append((product_family, highest_version, environments, total_servers))
+            
+            if qualifying_products:
+                qualifying_products.sort(key=lambda x: x[3], reverse=True)
+                top_products = qualifying_products[:5]
+                product_strs = [
+                    f"{product} {version}: {count} server(s) across {', '.join(envs)}"
+                    for (product, version, envs, count) in top_products
+                ]
+                more_count = len(qualifying_products) - len(top_products)
+                if more_count > 0:
+                    product_strs.append(f"...and {more_count} more product(s) with significant installations")
+                summary = "\n  • " + "\n  • ".join(product_strs)
+                if change_request.action == 'install':
+                    warnings.append(f"Software already installed on:{summary}")
+                elif change_request.action == 'upgrade':
+                    recommendations.append(f"Upgrading existing installations on:{summary}")
+            else:
+                if change_request.action == 'install':
+                    warnings.append("No significant existing installations found (threshold: 50 servers)")
+                elif change_request.action == 'upgrade':
+                    recommendations.append("No significant existing installations found for this upgrade (threshold: 50 servers)")
         
         # Calculate compatibility confidence
         confidence = self._calculate_confidence(conflicts, warnings, len(affected_servers))
