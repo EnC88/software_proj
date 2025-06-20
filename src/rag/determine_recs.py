@@ -13,7 +13,7 @@ from dataclasses import dataclass
 import pandas as pd
 from collections import Counter
 from collections import defaultdict
-from ..rag.query_engine import QueryEngine
+from src.rag.query_engine import QueryEngine
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -79,7 +79,20 @@ class CompatibilityAnalyzer:
                 
                 # Create server lookup
                 self.server_data = {server['id']: server for server in self.analysis.get('servers', [])}
-            
+                
+                # --- Dynamically build the list of known software from the data ---
+                known_families = set()
+                import re
+                for server in self.analysis.get('servers', []):
+                    model_full = server.get('server_info', {}).get('model', 'Unknown')
+                    if model_full != 'Unknown':
+                        version_match = re.search(r'(\d+(?:\.\d+)*)', model_full)
+                        product_family = model_full[:version_match.start()].strip().upper() if version_match else model_full.upper()
+                        if product_family:
+                            known_families.add(product_family)
+                self.known_software_families = sorted(list(known_families), key=len, reverse=True) # Longer names first for better matching
+                logger.info(f"Dynamically identified {len(self.known_software_families)} software families from data.")
+
         except Exception as e:
             logger.error(f"Error loading data: {str(e)}")
             raise
@@ -202,25 +215,20 @@ class CompatibilityAnalyzer:
             rag_results = self.query_engine.query(dependency_query, top_k=3)
             if rag_results:
                 context = self.query_engine.format_results_for_llm(rag_results)
-                # Parse context for other known software families
+                # Parse context for other known software families (using the dynamic list)
                 import re
-                found_deps = re.findall(r'|'.join(self.known_software_families), context.upper())
+                # Use the dynamically generated list of patterns
+                found_deps = re.findall(r'|'.join(re.escape(f) for f in self.known_software_families), context.upper())
                 software_to_show_families.extend(found_deps)
                 software_to_show_families = list(set(software_to_show_families))
             logger.info(f"Analyzing compatibility for: {software_to_show_families}")
         except Exception as e:
             logger.error(f"Could not query RAG for dependencies: {e}")
-            # Proceed with only the user-specified software
         
         # Find affected servers
         if change_request.environment:
-            # Filter by environment
-            affected_servers = [
-                server for server in self.analysis.get('servers', [])
-                if server['environment'] == change_request.environment
-            ]
+            affected_servers = [s for s in self.analysis.get('servers', []) if s['environment'] == change_request.environment]
         else:
-            # Check all servers
             affected_servers = self.analysis.get('servers', [])
         
         # Check compatibility rules
@@ -276,7 +284,6 @@ class CompatibilityAnalyzer:
                 recommendations.append(f"Upgrade frequency for {change_request.environment}: {upgrade_frequency}")
         
         # --- Find existing installations of target software and its dependencies ---
-        
         existing_installations = []
         for server in affected_servers:
             model_full = server.get('server_info', {}).get('model', 'Unknown')
@@ -285,62 +292,74 @@ class CompatibilityAnalyzer:
             
             env = server.get('environment', 'Unknown')
             
-            # Check if this server's software is one of the families we're interested in
-            current_product_family = ""
-            for family_to_show in software_to_show_families:
-                if family_to_show in model_full.upper():
-                    current_product_family = family_to_show # Use the matched keyword as the family
-                    break
-            
-            if not current_product_family:
-                continue
-
-            # Extract version
+            # Extract product family (full name) and version
             import re
-            version_match = re.search(r'(\d+\.\d+(?:\.\d+)?)', model_full)
+            version_match = re.search(r'(\d+(?:\.\d+)*)', model_full)
             version = version_match.group(1) if version_match else "0.0"
-
-            existing_installations.append((current_product_family, version, env))
+            product_family = model_full[:version_match.start()].strip().upper() if version_match else model_full.upper()
+            
+            # Check if this product family is one we want to show
+            for family_to_show in software_to_show_families:
+                if family_to_show in product_family:
+                    existing_installations.append((product_family, version, env))
+                    break
         
+        # --- Aggregate and format recommendations ---
         threshold = 50
         if existing_installations:
-            # Group by product_family and collect all versions and environments
+            from collections import defaultdict, Counter
             product_groups = defaultdict(lambda: defaultdict(list))
             for product_family, version, env in existing_installations:
                 product_groups[product_family]['versions'].append(version)
-                product_groups[product_family]['envs'].append(env)
+                product_groups[product_family]['envs'].append(str(env))
             
-            # For each product, find the highest version and aggregate counts/envs
             qualifying_products = []
             for product_family, data in product_groups.items():
                 total_servers = len(data['versions'])
-                
                 if total_servers >= threshold:
                     highest_version = "0.0"
                     if data['versions']:
                         try:
-                            highest_version = max(data['versions'], key=lambda v: [int(n) for n in v.split('.') if n.isdigit()])
-                        except ValueError:
-                            # Handle cases where version string might be non-numeric
+                            # Sort versions based on numeric components
+                            highest_version = max(data['versions'], key=lambda v: [int(part) for part in v.split('.') if part.isdigit()])
+                        except (ValueError, TypeError):
                             pass
-                    environments = sorted(list(set(data['envs'])))
-                    qualifying_products.append((product_family, highest_version, environments, total_servers))
+                    environments = sorted(list(set(e for e in data['envs'] if e not in ['Unknown', 'Closed', 'nan'])))
+                    if environments:
+                        qualifying_products.append((product_family, highest_version, environments, total_servers))
             
             if qualifying_products:
                 qualifying_products.sort(key=lambda x: x[3], reverse=True)
-                top_products = qualifying_products[:5]
-                product_strs = [
-                    f"{product} {version}: {count} server(s) across {', '.join(envs)}"
-                    for (product, version, envs, count) in top_products
+
+                # Filter out the software the user is already asking about
+                primary_software_family = change_request.software_name.upper()
+                filtered_products = [
+                    prod for prod in qualifying_products
+                    if primary_software_family not in prod[0]
                 ]
-                more_count = len(qualifying_products) - len(top_products)
-                if more_count > 0:
-                    product_strs.append(f"...and {more_count} more product(s) with significant installations")
-                summary = "\n  • " + "\n  • ".join(product_strs)
-                if change_request.action == 'install':
-                    warnings.append(f"Software already installed on:{summary}")
-                elif change_request.action == 'upgrade':
-                    recommendations.append(f"Upgrading existing installations on:{summary}")
+
+                if not filtered_products:
+                    # If nothing is left after filtering, the recommendation is different
+                    if change_request.action == 'upgrade':
+                        recommendations.append("No other significant dependent software installations were found.")
+                else:
+                    top_products = filtered_products[:5]
+                    product_strs = [
+                        f"{product} {version}: {count} server(s) across {', '.join(envs)}"
+                        for (product, version, envs, count) in top_products
+                    ]
+                    more_count = len(filtered_products) - len(top_products)
+                    if more_count > 0:
+                        product_strs.append(f"...and {more_count} more related product(s) found")
+                    
+                    summary = "\n  • " + "\n  • ".join(product_strs)
+                    
+                    # Use clearer language for the recommendation
+                    if change_request.action == 'upgrade':
+                        recommendations.append(f"Found related software to consider for upgrade:{summary}")
+                    else: # for install, etc.
+                        warnings.append(f"Found related existing software:{summary}")
+
             else:
                 if change_request.action == 'install':
                     warnings.append("No significant existing installations found (threshold: 50 servers)")
@@ -421,15 +440,25 @@ class CompatibilityAnalyzer:
                 model = server.get('server_info', {}).get('model', 'Unknown')
                 product_type = server.get('server_info', {}).get('product_type', 'Unknown')
                 env = server.get('environment', 'Unknown')
+                
+                # Skip entries with "Unknown" or "Closed" values
+                if model in ['Unknown', 'Closed'] or product_type in ['Unknown', 'Closed'] or str(env) in ['Unknown', 'Closed', 'nan']:
+                    continue
+                    
                 key = f"{model} ({product_type})"
                 if key not in model_env_map:
                     model_env_map[key] = set()
                 model_env_map[key].add(env)
-            for model, envs in list(model_env_map.items())[:5]:
-                envs_str = ', '.join(sorted(envs))
-                output.append(f"  • {model} [{envs_str}]")
-            if len(model_env_map) > 5:
-                output.append(f"  ... and {len(model_env_map) - 5} more")
+            
+            if model_env_map:
+                for model, envs in list(model_env_map.items())[:5]:
+                    # Ensure all envs are strings before sorting
+                    envs_str = ', '.join(sorted([str(e) for e in envs]))
+                    output.append(f"  • {model} [{envs_str}]")
+                if len(model_env_map) > 5:
+                    output.append(f"  ... and {len(model_env_map) - 5} more")
+            else:
+                output.append("  • No specific models identified")
         output.append("")
         
         # Conflicts
