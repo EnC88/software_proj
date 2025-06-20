@@ -194,11 +194,12 @@ class CompatibilityAnalyzer:
             raw_text=text
         )
     
-    def analyze_compatibility(self, change_request: ChangeRequest) -> CompatibilityResult:
-        """Analyze compatibility of a change request.
+    def analyze_compatibility(self, change_request: ChangeRequest, target_os: Optional[str] = None) -> CompatibilityResult:
+        """Analyze compatibility of a change request, optionally filtering by target OS.
         
         Args:
             change_request: Parsed change request
+            target_os: Optional OS name to filter servers (e.g., "Windows", "Linux")
             
         Returns:
             CompatibilityResult with analysis
@@ -231,6 +232,17 @@ class CompatibilityAnalyzer:
             affected_servers = [s for s in self.analysis.get('servers', []) if s['environment'] == change_request.environment]
         else:
             affected_servers = self.analysis.get('servers', [])
+        
+        # --- Filter by Target OS if provided ---
+        if target_os:
+            original_server_count = len(affected_servers)
+            filtered_servers = []
+            for server in affected_servers:
+                server_os = self._extract_os_from_server(server)
+                if server_os and target_os.lower() in server_os.lower():
+                    filtered_servers.append(server)
+            affected_servers = filtered_servers
+            logger.info(f"Filtered by OS '{target_os}'. Kept {len(affected_servers)} of {original_server_count} servers.")
         
         # Check compatibility rules
         if change_request.software_name in self.rules.get('web_server_os', {}):
@@ -384,9 +396,17 @@ class CompatibilityAnalyzer:
         )
     
     def _extract_os_from_server(self, server: Dict[str, Any]) -> Optional[str]:
-        """Extract OS information from server data."""
-        # This would need to be customized based on your actual data structure
-        # For now, return None as placeholder
+        """Extract OS information from server data by finding an OPERATING SYSTEM entry in the same environment."""
+        env = server.get('environment')
+        # Search for a server in the same environment with product_type == 'OPERATING SYSTEM'
+        for s in self.analysis.get('servers', []):
+            s_env = s.get('environment')
+            s_info = s.get('server_info', {})
+            if (
+                s_env == env and
+                s_info.get('product_type', '').upper() == 'OPERATING SYSTEM'
+            ):
+                return s_info.get('model')
         return None
     
     def _extract_version_from_os(self, os_name: str) -> Optional[str]:
@@ -563,11 +583,11 @@ class CompatibilityAnalyzer:
             change_requests = [cr] if cr else []
         return change_requests
 
-    def analyze_multiple_compatibility(self, change_requests: List[ChangeRequest]) -> List[Tuple[ChangeRequest, CompatibilityResult]]:
-        """Analyze compatibility for multiple change requests."""
+    def analyze_multiple_compatibility(self, change_requests: List[ChangeRequest], target_os: Optional[str] = None) -> List[Tuple[ChangeRequest, CompatibilityResult]]:
+        """Analyze compatibility for multiple change requests, optionally filtering by target OS."""
         results = []
         for cr in change_requests:
-            result = self.analyze_compatibility(cr)
+            result = self.analyze_compatibility(cr, target_os=target_os)
             results.append((cr, result))
         return results
 
@@ -604,8 +624,10 @@ def main():
         change_requests = analyzer.parse_multiple_change_requests(request_text)
         print(f"Parsed Requests: {change_requests}")
         
-        # Analyze compatibility
-        results = analyzer.analyze_multiple_compatibility(change_requests)
+        # Analyze compatibility (with an example OS filter)
+        target_os_for_test = "Linux" # Example: test filtering for Linux
+        results = analyzer.analyze_multiple_compatibility(change_requests, target_os=target_os_for_test)
+        print(f"Running analysis with OS filter: {target_os_for_test}")
         
         # Format and display results
         formatted_results = analyzer.format_multiple_results(results)

@@ -59,8 +59,14 @@ def build_interface():
     .section-header {font-size: 1.2em; font-weight: 600; margin-top: 1.2em; margin-bottom: 0.5em; display: flex; align-items: center; gap: 0.5em;}
     .section-list {margin: 0 0 0 1.2em; padding: 0;}
     .section-empty {color: #a3a3a3; font-style: italic; margin-left: 1.2em;}
+    .os-widget {padding: 1.5em; background-color: #f1f5f9; border-radius: 12px; text-align: center;}
+    .os-question {font-size: 1.1em; color: #334155; margin-bottom: 1em;}
     .gr-accordion {margin-bottom: 1em;}
     """) as demo:
+        # State variables
+        user_os = gr.State("")
+        detected_os = gr.State("")
+
         with gr.Row():
             with gr.Column(scale=3):
                 gr.Markdown("""
@@ -69,60 +75,115 @@ def build_interface():
                 """)
                 request_box = gr.Textbox(
                     label="Software Change Request",
-                    placeholder="E.g. 'Upgrade Apache to 2.4.50 in production'",
+                    placeholder="E.g. 'Upgrade Apache 2.4.50 and remove Tomcat 9.0 in production'",
                     lines=4,
                     elem_id="request-box"
                 )
                 analyze_btn = gr.Button("Run Analysis", elem_id="analyze-btn", variant="primary")
                 
                 # --- Results Section ---
-                with gr.Column(visible=False, elem_id="results-container") as results_container:
-                    gr.Markdown("<div class='section-header'>🟢 Status</div>", elem_id="status-header")
-                    status_md = gr.Markdown()
-                    gr.Markdown("<div class='section-header'>🗂️ Affected Models</div>", elem_id="affected-header")
-                    affected_md = gr.Markdown()
-                    conflicts_md = gr.Markdown(visible=False)
-                    warnings_md = gr.Markdown(visible=False)
-                    recs_md = gr.Markdown(visible=False)
-                    alts_md = gr.Markdown(visible=False)
+                results_md = gr.Markdown(visible=False)
 
             with gr.Column(scale=1):
-                gr.Markdown("""
-                <h4>Instructions</h4>
-                <ul>
-                  <li>Describe your software change (upgrade, install, remove, etc.)</li>
-                  <li>Mention software name, version, and environment if possible</li>
-                  <li>Click <b>Run Analysis</b> to see compatibility results</li>
-                </ul>
-                """)
+                # --- OS Detection Widget ---
+                with gr.Box(elem_classes="os-widget"):
+                    os_question_md = gr.Markdown(visible=False)
+                    with gr.Row(visible=False) as os_confirm_buttons:
+                        os_yes_btn = gr.Button("Yes", variant="primary")
+                        os_no_btn = gr.Button("No")
+                    os_select_dd = gr.Dropdown(
+                        ["Windows", "macOS", "Linux", "Other"],
+                        label="Select Your OS",
+                        visible=False
+                    )
+                    os_confirmed_md = gr.Markdown(visible=False)
 
-        def on_analyze(request_text):
-            if not request_text.strip():
-                return {results_container: gr.update(visible=True), status_md: gr.update(value="⚠️ Please enter a software change request.")}
-
-            change_request = analyzer.parse_change_request(request_text)
-            result = analyzer.analyze_compatibility(change_request)
-
-            # Recommendations get special formatting
-            recs_html = format_list_section(result.recommendations, icon="<span style='color:#0ea5e9;'>💡</span>", highlight=True) if result.recommendations else ""
-            warnings_html = format_list_section(result.warnings, icon="<span style='color:#f59e42;'>⚠️</span>") if result.warnings else ""
-            conflicts_html = format_list_section(result.conflicts, icon="<span style='color:#ef4444;'>⛔</span>") if result.conflicts else ""
-            alts_html = format_list_section(result.alternative_versions, icon="<span style='color:#64748b;'>🔄</span>") if result.alternative_versions else ""
-
+        # --- Functions ---
+        def get_os(user_agent: gr.Request):
+            """Detects OS from user agent and updates the UI."""
+            ua = user_agent.headers.get("user-agent", "").lower()
+            os_map = {"windows": "Windows", "mac": "macOS", "linux": "Linux"}
+            for key, val in os_map.items():
+                if key in ua:
+                    return {
+                        detected_os: val,
+                        os_question_md: gr.update(value=f"<div class='os-question'>Are you using <b>{val}</b>?</div>", visible=True),
+                        os_confirm_buttons: gr.update(visible=True)
+                    }
             return {
-                results_container: gr.update(visible=True),
-                status_md: gr.update(value=format_status(result)),
-                affected_md: gr.update(value=format_affected_models(result)),
-                conflicts_md: gr.update(value=conflicts_html, visible=bool(result.conflicts)),
-                warnings_md: gr.update(value=warnings_html, visible=bool(result.warnings)),
-                recs_md: gr.update(value=recs_html, visible=bool(result.recommendations)),
-                alts_md: gr.update(value=alts_html, visible=bool(result.alternative_versions)),
+                detected_os: "Other",
+                os_question_md: gr.update(visible=False),
+                os_confirm_buttons: gr.update(visible=False),
+                os_select_dd: gr.update(visible=True)
             }
+
+        def confirm_os(os_name):
+            """Confirms the OS and updates the UI."""
+            return {
+                user_os: os_name,
+                os_question_md: gr.update(visible=False),
+                os_confirm_buttons: gr.update(visible=False),
+                os_select_dd: gr.update(visible=False),
+                os_confirmed_md: gr.update(value=f"✅ OS set to <b>{os_name}</b>", visible=True)
+            }
+
+        def show_os_select():
+            """Shows the OS selection dropdown."""
+            return {
+                os_question_md: gr.update(visible=False),
+                os_confirm_buttons: gr.update(visible=False),
+                os_select_dd: gr.update(visible=True)
+            }
+
+        def on_analyze(request_text, current_os):
+            """Main analysis function using multi-upgrade logic."""
+            if not request_text.strip():
+                return {results_md: gr.update(value="<div class='results-container section-empty'>⚠️ Please enter a software change request.</div>", visible=True)}
+
+            # Use the new multi-upgrade parser and analyzer
+            change_requests = analyzer.parse_multiple_change_requests(request_text)
+            
+            # Pass the confirmed OS to the analyzer
+            results = analyzer.analyze_multiple_compatibility(change_requests, target_os=current_os)
+            
+            # Aggregate and format results
+            output = [f"<div>Analysis based on OS: <b>{current_os}</b></div><br>" if current_os else ""]
+            if not results:
+                output.append("<div class='section-empty'>Could not parse any valid change requests.</div>")
+            else:
+                for cr, result in results:
+                    # Header for each request
+                    output.append(f"<h3 class='section-header'>Request: {cr.action.title()} {cr.software_name} {cr.version or ''}</h3>")
+                    # Format each section
+                    output.append(format_status(result))
+                    output.append("<div class='section-header'>🗂️ Affected Models</div>")
+                    output.append(format_affected_models(result))
+                    if result.conflicts:
+                        output.append("<div class='section-header'>⛔ Conflicts</div>")
+                        output.append(format_list_section(result.conflicts, highlight=False))
+                    if result.warnings:
+                        output.append("<div class='section-header'>⚠️ Warnings</div>")
+                        output.append(format_list_section(result.warnings, highlight=False))
+                    if result.recommendations:
+                        output.append("<div class='section-header'>💡 Recommendations</div>")
+                        output.append(format_list_section(result.recommendations, highlight=True))
+                    if result.alternative_versions:
+                        output.append("<div class='section-header'>🔄 Alternative Versions</div>")
+                        output.append(format_list_section(result.alternative_versions, highlight=False))
+                    output.append("<hr style='margin: 2em 0; border: 1px solid #e0e7ef;'>")
+
+            return {results_md: gr.update(value=f"<div class='results-container'>{''.join(output)}</div>", visible=True)}
+
+        # --- Event Listeners ---
+        demo.load(get_os, inputs=None, outputs=[detected_os, os_question_md, os_confirm_buttons, os_select_dd])
+        os_yes_btn.click(confirm_os, inputs=detected_os, outputs=[user_os, os_question_md, os_confirm_buttons, os_select_dd, os_confirmed_md])
+        os_no_btn.click(show_os_select, outputs=[os_question_md, os_confirm_buttons, os_select_dd])
+        os_select_dd.change(confirm_os, inputs=os_select_dd, outputs=[user_os, os_question_md, os_confirm_buttons, os_select_dd, os_confirmed_md])
 
         analyze_btn.click(
             on_analyze, 
-            inputs=request_box, 
-            outputs=[results_container, status_md, affected_md, conflicts_md, warnings_md, recs_md, alts_md]
+            inputs=[request_box, user_os], 
+            outputs=[results_md]
         )
     return demo
 
