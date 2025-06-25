@@ -20,6 +20,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.append(str(REPO_ROOT))
 
 from src.evaluation.feedback_system import FeedbackLogger, FeedbackIntegration
+from src.evaluation.feedback_loop import run_feedback_loop
 
 # Configure page
 st.set_page_config(
@@ -76,6 +77,13 @@ def validate_date_range(start_date, end_date):
 def main():
     st.title("📊 Feedback Analytics Dashboard")
     st.markdown("---")
+    
+    # Add feedback loop retrain button
+    if st.button("🔄 Retrain Model from Feedback"):
+        with st.spinner("Retraining model and rebuilding index from feedback..."):
+            result = run_feedback_loop()
+        st.success(f"Retraining complete! Total feedback: {result['total_feedback']}, Negatives: {result['negative_feedback']}")
+        st.balloons()
     
     # Load data
     df = load_feedback_data()
