@@ -19,6 +19,8 @@ import schedule
 import threading
 import time
 import os
+from src.data_processing.hybrid_embedder import CompatibilityEmbedder
+from src.data_processing.build_faiss_index import build_and_save_faiss_index
 
 # Define repo root for robust file access
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -1060,6 +1062,41 @@ def cli_main():
     except Exception as e:
         logger.error(f"Test failed with error: {str(e)}")
         print(f"❌ Test failed: {str(e)}")
+
+def run_feedback_loop():
+    logger.info("Starting feedback loop...")
+    # 1. Load feedback
+    feedback_logger = FeedbackLogger()
+    all_feedback = feedback_logger.get_all_feedback()
+    logger.info(f"Loaded {len(all_feedback)} feedback entries.")
+
+    # 2. Find queries with negative feedback
+    negative_feedback = [f for f in all_feedback if f['feedback_score'] == 0]
+    logger.info(f"Found {len(negative_feedback)} negative feedback entries.")
+
+    # 3. Collect all queries for retraining (optionally prioritize negatives)
+    all_queries = [f['query'] for f in all_feedback]
+    # Optionally, you could upsample negative queries here
+
+    # 4. Retrain vectorizer/embeddings
+    logger.info("Retraining hybrid embedder on all feedback queries...")
+    embedder = CompatibilityEmbedder()
+    embedder.embedder.encode(all_queries)  # Fit on all queries
+    embedder.embedder.save(REPO_ROOT / 'data' / 'embeddings' / 'hybrid_model')
+    logger.info("Hybrid embedder retrained and saved.")
+
+    # 5. Rebuild the FAISS index
+    logger.info("Rebuilding FAISS index...")
+    build_and_save_faiss_index()
+    logger.info("FAISS index rebuilt.")
+
+    # 6. Log/report improvements
+    logger.info(f"Feedback loop complete. Model retrained with {len(all_queries)} queries, including {len(negative_feedback)} negatives.")
+    return {
+        'total_feedback': len(all_feedback),
+        'negative_feedback': len(negative_feedback),
+        'status': 'success'
+    }
 
 if __name__ == "__main__":
     cli_main() 

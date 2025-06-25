@@ -19,8 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # Add src to path for imports
 sys.path.append(str(REPO_ROOT))
 
-from src.evaluation.feedback_system import FeedbackLogger, FeedbackIntegration
-from src.evaluation.feedback_loop import run_feedback_loop
+from src.evaluation.feedback_system import FeedbackLogger, FeedbackIntegration, run_feedback_loop
 
 # Configure page
 st.set_page_config(
