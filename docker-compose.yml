@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  # Main application service
+  app:
+    build: .
+    ports:
+      - "7860:7860"  # Gradio interface
+      - "5000:5000"  # Flask API
+    volumes:
+      - ./data:/app/data  # Persist data
+      - ./logs:/app/logs  # Persist logs
+    environment:
+      - PYTHONPATH=/app
+      - GRADIO_SERVER_NAME=0.0.0.0
+      - GRADIO_SERVER_PORT=7860
+      - FLASK_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7860/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: PostgreSQL for production database (uncomment if needed)
+  # postgres:
+  #   image: postgres:15
+  #   environment:
+  #     POSTGRES_DB: compatibility_db
+  #     POSTGRES_USER: app_user
+  #     POSTGRES_PASSWORD: app_password
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+  #   restart: unless-stopped
+
+  # Optional: Redis for caching (uncomment if needed)
+  # redis:
+  #   image: redis:7-alpine
+  #   ports:
+  #     - "6379:6379"
+  #   restart: unless-stopped
+
+volumes:
+  postgres_data:  # Only needed if postgres service is enabled 

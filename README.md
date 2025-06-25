@@ -13,6 +13,15 @@ src/
 ├── rag/                     # RAG components
 │   ├── query_engine.py          # Query engine for similarity search
 │   └── compatibility_rag.py     # Legacy RAG implementation
+├── evaluation/              # Feedback and evaluation system
+│   ├── feedback_system.py       # Consolidated feedback system (43KB)
+│   │   ├── FeedbackLogger       # SQLite-based feedback logging
+│   │   ├── FeedbackIntegration  # Integration with query engine
+│   │   ├── FeedbackLoop         # Automated feedback analysis
+│   │   ├── AutomatedScheduler   # Scheduled feedback loop execution
+│   │   └── Demo & CLI tools     # Testing and demonstration functions
+│   ├── web_interface.py         # Flask API interface (17KB)
+│   └── test_feedback.py         # CLI test interface (7.5KB)
 models/                      # Model files
 data/
 └── processed/               # Processed data
@@ -22,6 +31,30 @@ data/
 ```
 
 ## 🚀 Quick Start
+
+### Option 1: Docker Deployment (Recommended)
+
+The easiest way to run the application is using Docker:
+
+```bash
+# Start the application
+./deploy.sh start
+
+# View logs
+./deploy.sh logs
+
+# Stop the application
+./deploy.sh stop
+
+# Check status
+./deploy.sh status
+```
+
+**Access the application:**
+- **Web Interface**: http://localhost:7860 (Gradio dashboard)
+- **API Endpoints**: http://localhost:5000 (Flask API)
+
+### Option 2: Local Development
 
 ### 1. Install Dependencies
 ```bash
@@ -43,6 +76,72 @@ This will run:
 ```bash
 python src/rag/query_engine.py
 ```
+
+## 🐳 Docker Deployment
+
+### Prerequisites
+- Docker and Docker Compose installed
+- At least 4GB RAM available
+
+### Quick Commands
+```bash
+# Start application
+./deploy.sh start
+
+# View logs
+./deploy.sh logs
+
+# Stop application
+./deploy.sh stop
+
+# Restart application
+./deploy.sh restart
+
+# Check status
+./deploy.sh status
+
+# Clean up (removes all containers and images)
+./deploy.sh cleanup
+```
+
+### Manual Docker Commands
+```bash
+# Build and start
+docker-compose up --build -d
+
+# View logs
+docker-compose logs -f app
+
+# Stop
+docker-compose down
+
+# Rebuild
+docker-compose up --build --force-recreate -d
+```
+
+### Production Deployment
+For production, you can uncomment the PostgreSQL and Redis services in `docker-compose.yml`:
+
+```yaml
+# Uncomment these services for production
+postgres:
+  image: postgres:15
+  # ... configuration
+
+redis:
+  image: redis:7-alpine
+  # ... configuration
+```
+
+### Environment Variables
+- `PYTHONPATH=/app` - Python path configuration
+- `GRADIO_SERVER_NAME=0.0.0.0` - Allow external connections
+- `GRADIO_SERVER_PORT=7860` - Gradio server port
+- `FLASK_ENV=production` - Flask environment
+
+### Data Persistence
+- `./data:/app/data` - Application data is persisted
+- `./logs:/app/logs` - Application logs are persisted
 
 ## 📋 Pipeline Steps
 
