@@ -9,8 +9,11 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+# Define repo root for robust file access
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
 # Add src to path for imports
-sys.path.append(str(Path(__file__).parent.parent.parent))
+sys.path.append(str(REPO_ROOT))
 
 from src.evaluation.feedback_system import FeedbackIntegration, cli_main
 
@@ -166,7 +169,7 @@ def main():
                     print("Invalid format. Using JSON.")
                     format_choice = 'json'
                 
-                output_path = f"data/processed/session_feedback_{feedback_integration.session_id[:8]}.{format_choice}"
+                output_path = REPO_ROOT / 'data' / 'processed' / f"session_feedback_{feedback_integration.session_id[:8]}.{format_choice}"
                 
                 success = feedback_integration.export_session_feedback(output_path, format_choice)
                 if success:

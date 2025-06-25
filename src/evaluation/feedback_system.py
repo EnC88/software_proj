@@ -20,6 +20,9 @@ import threading
 import time
 import os
 
+# Define repo root for robust file access
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
 # Try to import Redis
 try:
     import redis
@@ -34,7 +37,7 @@ logger = logging.getLogger(__name__)
 class DatabaseManager:
     """Database manager for SQLite."""
     def __init__(self):
-        self.db_path = Path('data/processed/feedback_log.db')
+        self.db_path = REPO_ROOT / 'data' / 'processed' / 'feedback_log.db'
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_sqlite()
 
@@ -604,7 +607,7 @@ class FeedbackLoop:
             return {'status': 'error', 'error': str(e)}
     def _save_loop_report(self, report: Dict[str, Any]):
         try:
-            report_path = Path('data/processed/feedback_loop_reports')
+            report_path = REPO_ROOT / 'data' / 'processed' / 'feedback_loop_reports'
             report_path.mkdir(parents=True, exist_ok=True)
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             report_file = report_path / f'loop_report_{timestamp}.json'

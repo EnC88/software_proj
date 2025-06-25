@@ -13,8 +13,11 @@ from datetime import datetime, timedelta
 import sys
 from pathlib import Path
 
+# Define repo root for robust file access
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
 # Add src to path for imports
-sys.path.append(str(Path(__file__).parent.parent.parent))
+sys.path.append(str(REPO_ROOT))
 
 from src.evaluation.feedback_system import FeedbackLogger, FeedbackIntegration
 
