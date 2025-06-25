@@ -21,9 +21,31 @@ class CompatibilityAnalyzer:
         # Load webserver mapping data
         self.webserver_data = pd.read_csv('data/processed/Webserver_OS_Mapping.csv')
         
-        # Clean environment data
-        self.webserver_data['ENVIRONMENT'] = self.webserver_data['ENVIRONMENT'].fillna('UNKNOWN')
-        logger.info(f"Loaded {len(self.webserver_data)} webserver records")
+        # Filter out rows with missing, "Unknown", or "Closed" values
+        initial_count = len(self.webserver_data)
+        
+        # Remove rows with missing or invalid environment
+        self.webserver_data = self.webserver_data.dropna(subset=['ENVIRONMENT'])
+        self.webserver_data = self.webserver_data[~self.webserver_data['ENVIRONMENT'].isin(['Unknown', 'UNKNOWN', 'Closed'])]
+        
+        # Remove rows with missing or invalid manufacturer/product info
+        self.webserver_data = self.webserver_data.dropna(subset=['MANUFACTURER_x', 'PRODUCTCLASS_x', 'PRODUCTTYPE_x'])
+        self.webserver_data = self.webserver_data[~self.webserver_data['MANUFACTURER_x'].isin(['Unknown', 'UNKNOWN', 'Closed'])]
+        self.webserver_data = self.webserver_data[~self.webserver_data['PRODUCTCLASS_x'].isin(['Unknown', 'UNKNOWN', 'Closed'])]
+        self.webserver_data = self.webserver_data[~self.webserver_data['PRODUCTTYPE_x'].isin(['Unknown', 'UNKNOWN', 'Closed'])]
+        
+        # Remove rows with missing or invalid model
+        self.webserver_data = self.webserver_data.dropna(subset=['MODEL_x'])
+        self.webserver_data = self.webserver_data[~self.webserver_data['MODEL_x'].isin(['Unknown', 'UNKNOWN', 'Closed'])]
+        
+        # Remove rows with "Closed" status
+        self.webserver_data = self.webserver_data[~self.webserver_data['STATUS_x'].isin(['Closed'])]
+        
+        final_count = len(self.webserver_data)
+        filtered_count = initial_count - final_count
+        
+        logger.info(f"Filtered out {filtered_count} rows with missing, 'Unknown', or 'Closed' values")
+        logger.info(f"Loaded {final_count} valid webserver records")
         logger.info(f"Environment distribution:\n{self.webserver_data['ENVIRONMENT'].value_counts()}")
         
         # Load SOR history data

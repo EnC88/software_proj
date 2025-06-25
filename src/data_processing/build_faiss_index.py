@@ -92,27 +92,37 @@ def save_index(index, chunk_ids, metadata=None):
         json.dump(index_info, f, indent=2)
     logger.info(f"Saved index info to {info_path}")
 
+def build_and_save_faiss_index(
+    embeddings_path=EMBEDDINGS_PATH,
+    metadata_path=METADATA_PATH,
+    index_dir=INDEX_DIR,
+    index_path=INDEX_PATH,
+    id_to_chunk_path=ID_TO_CHUNK_PATH
+):
+    """Build and save a FAISS index from embeddings and metadata."""
+    # Check if embeddings exist
+    if not embeddings_path.exists():
+        logger.error(f"Embeddings not found at {embeddings_path}")
+        logger.info("Please run the embedder first to create embeddings.")
+        return False
+
+    # Load embeddings and metadata
+    embeddings, chunk_ids = load_embeddings()
+    metadata = load_metadata()
+
+    # Build and save index
+    index = build_faiss_index(embeddings)
+    save_index(index, chunk_ids, metadata)
+
+    logger.info("✅ FAISS index creation complete!")
+    logger.info(f"📁 Index saved to: {index_dir}")
+    logger.info(f"🔍 Ready for similarity search with {len(chunk_ids)} chunks")
+    return True
+
 def main():
     """Main function to build FAISS index."""
     try:
-        # Check if embeddings exist
-        if not EMBEDDINGS_PATH.exists():
-            logger.error(f"Embeddings not found at {EMBEDDINGS_PATH}")
-            logger.info("Please run the embedder first to create embeddings.")
-            return
-        
-        # Load embeddings and metadata
-        embeddings, chunk_ids = load_embeddings()
-        metadata = load_metadata()
-        
-        # Build and save index
-        index = build_faiss_index(embeddings)
-        save_index(index, chunk_ids, metadata)
-        
-        logger.info("✅ FAISS index creation complete!")
-        logger.info(f"📁 Index saved to: {INDEX_DIR}")
-        logger.info(f"🔍 Ready for similarity search with {len(chunk_ids)} chunks")
-        
+        build_and_save_faiss_index()
     except Exception as e:
         logger.error(f"❌ Error building FAISS index: {str(e)}")
         logger.info("💡 Make sure embeddings exist by running the embedder first")

@@ -3,8 +3,11 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.rag.determine_recs import CompatibilityAnalyzer, CompatibilityResult, ChangeRequest
+from src.evaluation.feedback_system import FeedbackLogger
+import uuid
 
 analyzer = CompatibilityAnalyzer()
+feedback_logger = FeedbackLogger()
 
 # --- Formatting Functions ---
 def format_status(result: CompatibilityResult) -> str:
@@ -66,6 +69,9 @@ def build_interface():
         # State variables
         user_os = gr.State("")
         detected_os = gr.State("")
+        session_id = gr.State("")
+        last_query = gr.State("")
+        last_results = gr.State("")
 
         with gr.Row():
             with gr.Column(scale=3):
@@ -84,9 +90,17 @@ def build_interface():
                 # --- Results Section ---
                 results_md = gr.Markdown(visible=False)
 
+                # --- Feedback Section ---
+                with gr.Column(visible=False) as feedback_container:
+                    gr.Markdown("**Rate this analysis**", elem_id="feedback-header")
+                    with gr.Row():
+                        feedback_good_btn = gr.Button("👍 Looks Good")
+                        feedback_bad_btn = gr.Button("👎 Needs Improvement")
+                    feedback_thanks_md = gr.Markdown(visible=False)
+
             with gr.Column(scale=1):
                 # --- OS Detection Widget ---
-                with gr.Box(elem_classes="os-widget"):
+                with gr.Group(elem_classes="os-widget"):
                     os_question_md = gr.Markdown(visible=False)
                     with gr.Row(visible=False) as os_confirm_buttons:
                         os_yes_btn = gr.Button("Yes", variant="primary")
@@ -172,10 +186,39 @@ def build_interface():
                         output.append(format_list_section(result.alternative_versions, highlight=False))
                     output.append("<hr style='margin: 2em 0; border: 1px solid #e0e7ef;'>")
 
-            return {results_md: gr.update(value=f"<div class='results-container'>{''.join(output)}</div>", visible=True)}
+            formatted_output = f"<div class='results-container'>{''.join(output)}</div>"
+            
+            return {
+                results_md: gr.update(value=formatted_output, visible=True),
+                feedback_container: gr.update(visible=True),
+                feedback_thanks_md: gr.update(visible=False),
+                last_query: request_text,
+                last_results: formatted_output
+            }
+
+        def log_feedback(score, query, results, os, sid):
+            """Logs feedback and shows a thank you message."""
+            feedback_logger.log(
+                query=query,
+                generated_output=results,
+                feedback_score=score,
+                user_os=os,
+                session_id=sid
+            )
+            return {
+                feedback_container: gr.update(visible=False),
+                feedback_thanks_md: gr.update(value="🙏 **Thank you for your feedback!**", visible=True)
+            }
 
         # --- Event Listeners ---
-        demo.load(get_os, inputs=None, outputs=[detected_os, os_question_md, os_confirm_buttons, os_select_dd])
+        demo.load(
+            lambda: {session_id: str(uuid.uuid4())}, 
+            outputs=[session_id]
+        ).then(
+            get_os, 
+            inputs=None, 
+            outputs=[detected_os, os_question_md, os_confirm_buttons, os_select_dd]
+        )
         os_yes_btn.click(confirm_os, inputs=detected_os, outputs=[user_os, os_question_md, os_confirm_buttons, os_select_dd, os_confirmed_md])
         os_no_btn.click(show_os_select, outputs=[os_question_md, os_confirm_buttons, os_select_dd])
         os_select_dd.change(confirm_os, inputs=os_select_dd, outputs=[user_os, os_question_md, os_confirm_buttons, os_select_dd, os_confirmed_md])
@@ -183,10 +226,29 @@ def build_interface():
         analyze_btn.click(
             on_analyze, 
             inputs=[request_box, user_os], 
-            outputs=[results_md]
+            outputs=[results_md, feedback_container, feedback_thanks_md, last_query, last_results]
         )
+
+        feedback_good_btn.click(
+            lambda query, results, os, sid: log_feedback(1, query, results, os, sid),
+            inputs=[last_query, last_results, user_os, session_id],
+            outputs=[feedback_container, feedback_thanks_md]
+        )
+        feedback_bad_btn.click(
+            lambda query, results, os, sid: log_feedback(0, query, results, os, sid),
+            inputs=[last_query, last_results, user_os, session_id],
+            outputs=[feedback_container, feedback_thanks_md]
+        )
+
     return demo
 
 if __name__ == "__main__":
     demo = build_interface()
-    demo.launch()
+    demo.launch(
+        server_name="0.0.0.0",  # Allow external connections
+        server_port=7860,       # Use standard Gradio port
+        share=False,            # Don't create public link
+        debug=False,            # Disable debug mode for production
+        show_error=True,        # Show errors in the interface
+        quiet=False             # Show startup messages
+    )

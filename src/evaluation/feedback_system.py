@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Comprehensive Feedback System for RAG Pipeline
-Combines feedback logging, integration, and automated improvement loop.
+Consolidated Feedback System for RAG Pipeline Evaluation
+Combines feedback logging, integration, automation, and analytics in a single module.
 """
 
 # --- Imports ---
@@ -18,80 +18,273 @@ from contextlib import contextmanager
 import schedule
 import threading
 import time
+import os
+
+# Try to import PostgreSQL dependencies
+try:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+    POSTGRES_AVAILABLE = True
+except ImportError:
+    POSTGRES_AVAILABLE = False
+
+# Try to import Redis
+try:
+    import redis
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# --- Feedback Logger ---
-class FeedbackLogger:
-    """Handles logging of feedback for analysis results using SQLite."""
-    def __init__(self, db_path: str = 'data/processed/feedback_log.db'):
-        self.db_path = Path(db_path)
-        self._initialize_db()
+class DatabaseManager:
+    """Abstract database manager for both SQLite and PostgreSQL."""
+    
+    def __init__(self, db_type: str = 'sqlite', connection_string: Optional[str] = None):
+        self.db_type = db_type
+        self.connection_string = connection_string
+        
+        if db_type == 'postgresql' and not POSTGRES_AVAILABLE:
+            logger.warning("PostgreSQL not available, falling back to SQLite")
+            self.db_type = 'sqlite'
+            
+        if db_type == 'postgresql':
+            self._init_postgresql()
+        else:
+            self._init_sqlite()
+    
+    def _init_sqlite(self):
+        """Initialize SQLite database."""
+        self.db_path = Path('data/processed/feedback_log.db')
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        
+    def _init_postgresql(self):
+        """Initialize PostgreSQL connection."""
+        if not self.connection_string:
+            # Try to get from environment
+            self.connection_string = os.getenv('DATABASE_URL')
+            if not self.connection_string:
+                raise ValueError("DATABASE_URL environment variable is required for PostgreSQL")
+    
     @contextmanager
-    def _get_connection(self):
+    def get_connection(self):
+        """Get database connection with proper error handling."""
         conn = None
         try:
-            conn = sqlite3.connect(self.db_path)
-            conn.row_factory = sqlite3.Row
+            if self.db_type == 'postgresql':
+                conn = psycopg2.connect(self.connection_string)
+                conn.autocommit = False
+            else:
+                conn = sqlite3.connect(self.db_path)
+                conn.row_factory = sqlite3.Row
             yield conn
-        except sqlite3.Error as e:
+        except Exception as e:
             logger.error(f"Database connection error: {e}")
+            if conn:
+                # Only rollback if we're in a transaction
+                try:
+                    conn.rollback()
+                except Exception as rollback_error:
+                    logger.error(f"Rollback failed: {rollback_error}")
             raise
         finally:
             if conn:
-                conn.close()
-    def _initialize_db(self):
+                try:
+                    conn.close()
+                except Exception as close_error:
+                    logger.error(f"Connection close failed: {close_error}")
+    
+    def execute_query(self, query: str, params: tuple = None):
+        """Execute a query and return results."""
         try:
-            self.db_path.parent.mkdir(parents=True, exist_ok=True)
-            with self._get_connection() as conn:
+            with self.get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS feedback (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        timestamp TEXT NOT NULL,
-                        session_id TEXT,
-                        query TEXT NOT NULL,
-                        generated_output TEXT NOT NULL,
-                        feedback_score INTEGER NOT NULL CHECK (feedback_score IN (-1, 0, 1)),
-                        user_os TEXT,
-                        notes TEXT,
-                        metadata TEXT,
-                        created_at TEXT DEFAULT (datetime('now'))
-                    )
-                ''')
-                cursor.execute('CREATE INDEX IF NOT EXISTS idx_timestamp ON feedback(timestamp)')
-                cursor.execute('CREATE INDEX IF NOT EXISTS idx_session_id ON feedback(session_id)')
-                cursor.execute('CREATE INDEX IF NOT EXISTS idx_feedback_score ON feedback(feedback_score)')
-                conn.commit()
-            logger.info(f"Feedback database initialized at: {self.db_path}")
+                if params:
+                    cursor.execute(query, params)
+                else:
+                    cursor.execute(query)
+                
+                if query.strip().upper().startswith('SELECT'):
+                    if self.db_type == 'postgresql':
+                        return [dict(row) for row in cursor.fetchall()]
+                    else:
+                        return [dict(row) for row in cursor.fetchall()]
+                else:
+                    conn.commit()
+                    return cursor.rowcount
         except Exception as e:
-            logger.error(f"Failed to initialize database: {e}")
+            logger.error(f"Query execution error: {e}")
             raise
+    
+    def create_tables(self):
+        """Create necessary tables."""
+        if self.db_type == 'postgresql':
+            self._create_postgresql_tables()
+        else:
+            self._create_sqlite_tables()
+    
+    def _create_sqlite_tables(self):
+        """Create SQLite tables."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Feedback table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS feedback (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT NOT NULL,
+                    session_id TEXT,
+                    query TEXT NOT NULL,
+                    generated_output TEXT NOT NULL,
+                    feedback_score INTEGER NOT NULL CHECK (feedback_score IN (-1, 0, 1)),
+                    user_os TEXT,
+                    notes TEXT,
+                    metadata TEXT,
+                    created_at TEXT DEFAULT (datetime('now'))
+                )
+            ''')
+            
+            # Improvement logs table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS improvement_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT NOT NULL,
+                    recommendation_title TEXT,
+                    recommendation_action TEXT,
+                    status TEXT,
+                    metadata TEXT
+                )
+            ''')
+            
+            # Create indexes
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_timestamp ON feedback(timestamp)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_session_id ON feedback(session_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_feedback_score ON feedback(feedback_score)')
+            
+            conn.commit()
+    
+    def _create_postgresql_tables(self):
+        """Create PostgreSQL tables."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Feedback table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS feedback (
+                    id SERIAL PRIMARY KEY,
+                    timestamp TIMESTAMP NOT NULL,
+                    session_id VARCHAR(255),
+                    query TEXT NOT NULL,
+                    generated_output TEXT NOT NULL,
+                    feedback_score INTEGER NOT NULL CHECK (feedback_score IN (-1, 0, 1)),
+                    user_os VARCHAR(100),
+                    notes TEXT,
+                    metadata JSONB,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # Improvement logs table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS improvement_logs (
+                    id SERIAL PRIMARY KEY,
+                    timestamp TIMESTAMP NOT NULL,
+                    recommendation_title VARCHAR(500),
+                    recommendation_action TEXT,
+                    status VARCHAR(50),
+                    metadata JSONB
+                )
+            ''')
+            
+            # Create indexes
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_feedback_timestamp ON feedback(timestamp)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_feedback_session_id ON feedback(session_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_feedback_score ON feedback(feedback_score)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_feedback_metadata ON feedback USING GIN(metadata)')
+            
+            conn.commit()
+
+# --- Feedback Logger ---
+class FeedbackLogger:
+    """Handles logging of feedback for analysis results using SQLite or PostgreSQL."""
+    
+    def __init__(self, db_path: str = 'data/processed/feedback_log.db', db_type: str = 'auto'):
+        """Initialize the feedback logger.
+        
+        Args:
+            db_path: Path to the SQLite database file (for SQLite mode).
+            db_type: Database type ('sqlite', 'postgresql', or 'auto').
+        """
+        if db_type == 'auto':
+            # Auto-detect based on environment
+            if os.getenv('DATABASE_URL') and POSTGRES_AVAILABLE:
+                db_type = 'postgresql'
+            else:
+                db_type = 'sqlite'
+        
+        self.db_manager = DatabaseManager(db_type, os.getenv('DATABASE_URL'))
+        self.db_path = db_path  # Keep for backward compatibility
+        self.db_manager.create_tables()
+        
+        logger.info(f"Feedback database initialized with {db_type}")
+        
+    @contextmanager
+    def _get_connection(self):
+        """Context manager for database connections with proper error handling."""
+        with self.db_manager.get_connection() as conn:
+            yield conn
+    
     def log(self, query: str, generated_output: str, feedback_score: int, user_os: Optional[str] = None, session_id: Optional[str] = None, notes: Optional[str] = "", metadata: Optional[Dict[str, Any]] = None) -> bool:
+        """Log a single piece of feedback to the database."""
+        # Input validation
         if not query or not query.strip():
             raise ValueError("Query cannot be empty")
         if not generated_output or not generated_output.strip():
             raise ValueError("Generated output cannot be empty")
         if feedback_score not in [-1, 0, 1]:
             raise ValueError("Feedback score must be -1, 0, or 1")
+        
         try:
             timestamp = datetime.now().isoformat()
-            metadata_json = json.dumps(metadata) if metadata else None
-            with self._get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute('''
-                    INSERT INTO feedback (timestamp, session_id, query, generated_output, feedback_score, user_os, notes, metadata)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (timestamp, session_id, query.strip(), generated_output.strip(), feedback_score, user_os, notes, metadata_json))
-                conn.commit()
+            
+            if self.db_manager.db_type == 'postgresql':
+                # PostgreSQL with JSONB
+                with self._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('''
+                        INSERT INTO feedback (timestamp, session_id, query, generated_output, 
+                                            feedback_score, user_os, notes, metadata)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    ''', (timestamp, session_id, query.strip(), generated_output.strip(), 
+                         feedback_score, user_os, notes, json.dumps(metadata) if metadata else None))
+                    conn.commit()
+            else:
+                # SQLite
+                metadata_json = json.dumps(metadata) if metadata else None
+                with self._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('''
+                        INSERT INTO feedback (timestamp, session_id, query, generated_output, 
+                                            feedback_score, user_os, notes, metadata)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (timestamp, session_id, query.strip(), generated_output.strip(), 
+                         feedback_score, user_os, notes, metadata_json))
+                    conn.commit()
+            
             logger.info(f"Logged feedback with score: {feedback_score} for session: {session_id}")
             return True
+            
+        except (ValueError, TypeError) as e:
+            logger.error(f"Validation error in feedback logging: {str(e)}")
+            raise
         except Exception as e:
-            logger.error(f"Error logging feedback: {str(e)}")
+            logger.error(f"Database error in feedback logging: {str(e)}")
             return False
+
     def get_all_feedback(self) -> List[Dict[str, Any]]:
+        """Retrieve all feedback entries from the database."""
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -99,35 +292,72 @@ class FeedbackLogger:
                 rows = cursor.fetchall()
                 return [dict(row) for row in rows]
         except Exception as e:
-            logger.error(f"Error retrieving feedback: {str(e)}")
+            logger.error(f"Database error retrieving feedback: {str(e)}")
             return []
+    
     def get_feedback_by_session(self, session_id: str) -> List[Dict[str, Any]]:
+        """Retrieve all feedback entries for a specific session."""
+        if not session_id:
+            raise ValueError("Session ID cannot be empty")
+            
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute('SELECT * FROM feedback WHERE session_id = ? ORDER BY timestamp DESC', (session_id,))
+                if self.db_manager.db_type == 'postgresql':
+                    cursor.execute('SELECT * FROM feedback WHERE session_id = %s ORDER BY timestamp DESC', (session_id,))
+                else:
+                    cursor.execute('SELECT * FROM feedback WHERE session_id = ? ORDER BY timestamp DESC', (session_id,))
                 rows = cursor.fetchall()
                 return [dict(row) for row in rows]
         except Exception as e:
-            logger.error(f"Error retrieving feedback for session {session_id}: {str(e)}")
+            logger.error(f"Database error retrieving feedback for session {session_id}: {str(e)}")
             return []
+    
     def get_feedback_stats(self) -> Dict[str, Any]:
+        """Get statistics about the feedback data."""
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute('SELECT COUNT(*) FROM feedback')
-                total_count = cursor.fetchone()[0]
-                cursor.execute('SELECT COUNT(*) FROM feedback WHERE feedback_score = 1')
-                positive_count = cursor.fetchone()[0]
-                cursor.execute('SELECT COUNT(*) FROM feedback WHERE feedback_score = 0')
-                negative_count = cursor.fetchone()[0]
-                cursor.execute('''
-                    SELECT COUNT(*) FROM feedback 
-                    WHERE timestamp >= datetime('now', '-7 days')
-                ''')
-                recent_count = cursor.fetchone()[0]
-                cursor.execute('SELECT COUNT(DISTINCT session_id) FROM feedback WHERE session_id IS NOT NULL')
-                unique_sessions = cursor.fetchone()[0]
+                
+                if self.db_manager.db_type == 'postgresql':
+                    # PostgreSQL queries
+                    cursor.execute('SELECT COUNT(*) FROM feedback')
+                    total_count = cursor.fetchone()[0]
+                    
+                    cursor.execute('SELECT COUNT(*) FROM feedback WHERE feedback_score = 1')
+                    positive_count = cursor.fetchone()[0]
+                    
+                    cursor.execute('SELECT COUNT(*) FROM feedback WHERE feedback_score = 0')
+                    negative_count = cursor.fetchone()[0]
+                    
+                    cursor.execute('''
+                        SELECT COUNT(*) FROM feedback 
+                        WHERE timestamp >= NOW() - INTERVAL '7 days'
+                    ''')
+                    recent_count = cursor.fetchone()[0]
+                    
+                    cursor.execute('SELECT COUNT(DISTINCT session_id) FROM feedback WHERE session_id IS NOT NULL')
+                    unique_sessions = cursor.fetchone()[0]
+                else:
+                    # SQLite queries
+                    cursor.execute('SELECT COUNT(*) FROM feedback')
+                    total_count = cursor.fetchone()[0]
+                    
+                    cursor.execute('SELECT COUNT(*) FROM feedback WHERE feedback_score = 1')
+                    positive_count = cursor.fetchone()[0]
+                    
+                    cursor.execute('SELECT COUNT(*) FROM feedback WHERE feedback_score = 0')
+                    negative_count = cursor.fetchone()[0]
+                    
+                    cursor.execute('''
+                        SELECT COUNT(*) FROM feedback 
+                        WHERE timestamp >= datetime('now', '-7 days')
+                    ''')
+                    recent_count = cursor.fetchone()[0]
+                    
+                    cursor.execute('SELECT COUNT(DISTINCT session_id) FROM feedback WHERE session_id IS NOT NULL')
+                    unique_sessions = cursor.fetchone()[0]
+                
                 return {
                     'total_feedback': total_count,
                     'positive_feedback': positive_count,
@@ -137,7 +367,7 @@ class FeedbackLogger:
                     'positive_rate': (positive_count / total_count * 100) if total_count > 0 else 0
                 }
         except Exception as e:
-            logger.error(f"Error retrieving feedback stats: {str(e)}")
+            logger.error(f"Database error retrieving feedback stats: {str(e)}")
             return {}
 
 # --- Feedback Integration ---

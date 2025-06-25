@@ -15,6 +15,12 @@ services:
       - GRADIO_SERVER_NAME=0.0.0.0
       - GRADIO_SERVER_PORT=7860
       - FLASK_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY}
+    env_file:
+      - .env
+    depends_on:
+      - postgres
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:7860/"]
@@ -23,25 +29,53 @@ services:
       retries: 3
       start_period: 40s
 
-  # Optional: PostgreSQL for production database (uncomment if needed)
-  # postgres:
-  #   image: postgres:15
-  #   environment:
-  #     POSTGRES_DB: compatibility_db
-  #     POSTGRES_USER: app_user
-  #     POSTGRES_PASSWORD: app_password
-  #   volumes:
-  #     - postgres_data:/var/lib/postgresql/data
-  #   ports:
-  #     - "5432:5432"
-  #   restart: unless-stopped
+  # Analytics Dashboard
+  analytics:
+    build: .
+    ports:
+      - "8501:8501"  # Streamlit dashboard
+    volumes:
+      - ./data:/app/data  # Share data with main app
+      - ./logs:/app/logs
+    environment:
+      - PYTHONPATH=/app
+      - DATABASE_URL=${DATABASE_URL}
+    env_file:
+      - .env
+    command: ["streamlit", "run", "src/evaluation/analytics_dashboard.py", "--server.port=8501", "--server.address=0.0.0.0"]
+    depends_on:
+      - postgres
+    restart: unless-stopped
 
-  # Optional: Redis for caching (uncomment if needed)
-  # redis:
-  #   image: redis:7-alpine
-  #   ports:
-  #     - "6379:6379"
-  #   restart: unless-stopped
+  # PostgreSQL for production database
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-compatibility_db}
+      POSTGRES_USER: ${POSTGRES_USER:-app_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app_user} -d ${POSTGRES_DB:-compatibility_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and session management
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
-  postgres_data:  # Only needed if postgres service is enabled 
+  postgres_data: 

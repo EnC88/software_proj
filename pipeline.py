@@ -20,6 +20,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Add this import for the FAISS index function
+from src.data_processing.build_faiss_index import build_and_save_faiss_index
+
 def run_step(step_name: str, script_path: str, description: str) -> bool:
     """Run a pipeline step with error handling.
     
@@ -106,21 +109,24 @@ def main():
             'name': 'Embedding',
             'script': 'src/data_processing/hybrid_embedder.py',
             'description': 'Generate embeddings using hybrid NLTK + TF-IDF approach'
-        },
-        {
-            'name': 'Indexing',
-            'script': 'src/data_processing/build_faiss_index.py',
-            'description': 'Build FAISS index for fast similarity search'
         }
     ]
     
-    # Run each step
+    # Run chunking and embedding as subprocesses
     for step in steps:
         success = run_step(step['name'], step['script'], step['description'])
         if not success:
             logger.error(f"❌ Pipeline failed at step: {step['name']}")
             logger.error("Please fix the error and run the pipeline again.")
             sys.exit(1)
+    
+    # Run indexing as a function call
+    logger.info("🚀 Starting Indexing: Build FAISS index for fast similarity search")
+    success = build_and_save_faiss_index()
+    if not success:
+        logger.error(f"❌ Pipeline failed at step: Indexing")
+        logger.error("Please fix the error and run the pipeline again.")
+        sys.exit(1)
     
     logger.info("🎉 Pipeline completed successfully!")
     logger.info("=" * 60)
