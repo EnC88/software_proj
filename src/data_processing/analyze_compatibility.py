@@ -121,6 +121,7 @@ class CompatibilityAnalyzer:
                 "id": str(row['CATALOGID']),
                 "name": row['ASSETNAME'],
                 "environment": row['ENVIRONMENT'],
+                "objectname": row['OBJECTNAME'] if 'OBJECTNAME' in row and pd.notnull(row['OBJECTNAME']) else None,
                 "server_info": {
                     "manufacturer": row['MANUFACTURER_x'],
                     "product_class": row['PRODUCTCLASS_x'],
@@ -142,7 +143,10 @@ class CompatibilityAnalyzer:
 
         # Create detailed server entries
         server_entries = [create_server_entry(row) for _, row in self.webserver_data.iterrows()]
-        
+
+        # Export SOR history as a list of dicts (including OBJECTNAME)
+        sor_history = self.sor_hist_data.fillna("").to_dict(orient="records")
+
         # Create environment summaries
         env_summaries = {}
         for env in self.webserver_data['ENVIRONMENT'].unique():
@@ -177,12 +181,20 @@ class CompatibilityAnalyzer:
             "compatibility_patterns": {
                 "by_environment": env_summaries,
                 "by_manufacturer": manufacturer_summaries
-            }
+            },
+            "sor_history": sor_history
         }
         
         with open(filepath, 'w') as f:
             json.dump(analysis_results, f, indent=4)
         logger.info(f"Analysis results saved to {filepath}")
+
+    def get_database_models(self):
+        """Return sorted list of unique models where OBJECTNAME == 'DATABASEINSTANCE'."""
+        if self.webserver_data is not None and 'OBJECTNAME' in self.webserver_data.columns and 'MODEL_x' in self.webserver_data.columns:
+            db_models = self.webserver_data[self.webserver_data['OBJECTNAME'] == 'DATABASEINSTANCE']['MODEL_x'].dropna().unique()
+            return sorted(db_models)
+        return []
 
 def main():
     analyzer = CompatibilityAnalyzer()
