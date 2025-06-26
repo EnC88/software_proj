@@ -1,30 +1,60 @@
 import gradio as gr
-import sys
+import requests
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from src.rag.determine_recs import CompatibilityAnalyzer, CompatibilityResult, ChangeRequest
-from src.evaluation.feedback_system import FeedbackLogger
+import sys
 import uuid
 import plotly.graph_objects as go
-import plotly.express as px
 import pandas as pd
 from datetime import datetime, timedelta
-import json
 
-analyzer = CompatibilityAnalyzer()
-feedback_logger = FeedbackLogger()
+# --- API CONFIG ---
+API_URL = os.getenv('FEEDBACK_API_URL', 'http://localhost:5000')
+
+# --- API CALL HELPERS ---
+def api_query(request_text, user_os):
+    try:
+        resp = requests.post(f"{API_URL}/query", json={"query": request_text, "user_os": user_os}, timeout=30)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+def api_feedback(query, generated_output, feedback_score, user_os, session_id=None, notes=None):
+    try:
+        payload = {
+            "query": query,
+            "generated_output": generated_output,
+            "feedback_score": feedback_score,
+            "user_os": user_os,
+            "metadata": {"session_id": session_id} if session_id else None,
+            "notes": notes or ""
+        }
+        resp = requests.post(f"{API_URL}/feedback", json=payload, timeout=15)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+def api_analytics():
+    try:
+        resp = requests.get(f"{API_URL}/analytics", timeout=15)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as e:
+        return {"error": str(e)}
 
 # --- Formatting Functions ---
-def format_status(result: CompatibilityResult) -> str:
-    status = "COMPATIBLE" if result.is_compatible else "INCOMPATIBLE"
-    color = "#22c55e" if result.is_compatible else "#ef4444"
-    return f"<span style='display:inline-block;padding:0.4em 1em;border-radius:1em;background:{color};color:white;font-weight:bold;font-size:1.1em;'>{status}</span> <span style='color:#64748b;font-size:1em;'>(Confidence: {result.confidence:.1%})</span>"
+def format_status(result):
+    status = "COMPATIBLE" if result.get('is_compatible') else "INCOMPATIBLE"
+    color = "#22c55e" if result.get('is_compatible') else "#ef4444"
+    confidence = result.get('confidence', 0)
+    return f"<span style='display:inline-block;padding:0.4em 1em;border-radius:1em;background:{color};color:white;font-weight:bold;font-size:1.1em;'>{status}</span> <span style='color:#64748b;font-size:1em;'>(Confidence: {confidence:.1%})</span>"
 
-def format_affected_models(result: CompatibilityResult) -> str:
-    if not result.affected_servers:
+def format_affected_models(result):
+    if not result.get('affected_servers', []):
         return "<div class='section-empty'>No specific models identified</div>"
     model_env_map = {}
-    for server in result.affected_servers:
+    for server in result.get('affected_servers', []):
         model = server.get('server_info', {}).get('model', 'Unknown')
         product_type = server.get('server_info', {}).get('product_type', 'Unknown')
         env = server.get('environment', 'Unknown')
@@ -60,25 +90,18 @@ def format_list_section(items: list, icon: str = "", highlight: bool = False) ->
 
 # --- Analytics Functions ---
 def get_analytics_data():
-    """Get analytics data from feedback database."""
+    analytics = api_analytics()
+    if not analytics or 'error' in analytics:
+        return None
     try:
-        all_feedback = feedback_logger.get_all_feedback()
-        if not all_feedback:
-            return None
-        
-        df = pd.DataFrame(all_feedback)
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
-        df['date'] = df['timestamp'].dt.date
-        df['hour'] = df['timestamp'].dt.hour
-        df['day_of_week'] = df['timestamp'].dt.day_name()
-        
+        df = pd.DataFrame(analytics.get('feedback', []))
+        if 'timestamp' in df:
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
         return df
-    except Exception as e:
-        print(f"Error getting analytics data: {e}")
+    except Exception:
         return None
 
 def create_overall_stats():
-    """Create overall statistics."""
     df = get_analytics_data()
     if df is None or df.empty:
         return "No feedback data available yet."
@@ -112,7 +135,6 @@ def create_overall_stats():
     return stats_html
 
 def create_query_analysis():
-    """Create query analysis charts."""
     df = get_analytics_data()
     if df is None or df.empty:
         return "No feedback data available yet."
@@ -153,7 +175,6 @@ def create_query_analysis():
     """
 
 def create_os_analysis():
-    """Create OS distribution analysis."""
     df = get_analytics_data()
     if df is None or df.empty:
         return "No feedback data available yet."
@@ -173,7 +194,6 @@ def create_os_analysis():
     """
 
 def create_recent_feedback_table():
-    """Create recent feedback table."""
     df = get_analytics_data()
     if df is None or df.empty:
         return "No feedback data available yet."
@@ -328,38 +348,35 @@ def build_interface():
         def on_analyze(request_text, current_os):
             """Main analysis function using multi-upgrade logic."""
             if not request_text.strip():
-                return {results_md: gr.update(value="<div class='results-container section-empty'>⚠️ Please enter a software change request.</div>", visible=True)}
+                return {"results_md": gr.update(value="<div class='results-container section-empty'>⚠️ Please enter a software change request.</div>", visible=True)}
+            api_result = api_query(request_text, current_os)
+            if 'error' in api_result:
+                return {"results_md": gr.update(value=f"<div class='results-container section-empty'>API Error: {api_result['error']}</div>", visible=True)}
 
-            # Use the new multi-upgrade parser and analyzer
-            change_requests = analyzer.parse_multiple_change_requests(request_text)
-            
-            # Pass the confirmed OS to the analyzer
-            results = analyzer.analyze_multiple_compatibility(change_requests, target_os=current_os)
-            
             # Aggregate and format results
             output = [f"<div>Analysis based on OS: <b>{current_os}</b></div><br>" if current_os else ""]
-            if not results:
+            if not api_result.get('results', []):
                 output.append("<div class='section-empty'>Could not parse any valid change requests.</div>")
             else:
-                for cr, result in results:
+                for result in api_result['results']:
                     # Header for each request
-                    output.append(f"<h3 class='section-header'>Request: {cr.action.title()} {cr.software_name} {cr.version or ''}</h3>")
+                    output.append(f"<h3 class='section-header'>Request: {result['action']['title']} {result['software_name']} {result['version'] or ''}</h3>")
                     # Format each section
                     output.append(format_status(result))
                     output.append("<div class='section-header'>🗂️ Affected Models</div>")
                     output.append(format_affected_models(result))
-                    if result.conflicts:
+                    if result.get('conflicts', []):
                         output.append("<div class='section-header'>⛔ Conflicts</div>")
-                        output.append(format_list_section(result.conflicts, highlight=False))
-                    if result.warnings:
+                        output.append(format_list_section(result.get('conflicts', []), highlight=False))
+                    if result.get('warnings', []):
                         output.append("<div class='section-header'>⚠️ Warnings</div>")
-                        output.append(format_list_section(result.warnings, highlight=False))
-                    if result.recommendations:
+                        output.append(format_list_section(result.get('warnings', []), highlight=False))
+                    if result.get('recommendations', []):
                         output.append("<div class='section-header'>💡 Recommendations</div>")
-                        output.append(format_list_section(result.recommendations, highlight=True))
-                    if result.alternative_versions:
+                        output.append(format_list_section(result.get('recommendations', []), highlight=True))
+                    if result.get('alternative_versions', []):
                         output.append("<div class='section-header'>🔄 Alternative Versions</div>")
-                        output.append(format_list_section(result.alternative_versions, highlight=False))
+                        output.append(format_list_section(result.get('alternative_versions', []), highlight=False))
                     output.append("<hr style='margin: 2em 0; border: 1px solid #e0e7ef;'>")
 
             formatted_output = f"<div class='results-container'>{''.join(output)}</div>"
@@ -374,17 +391,10 @@ def build_interface():
 
         def log_feedback(score, query, results, os, sid):
             """Logs feedback and shows a thank you message."""
-            feedback_logger.log(
-                query=query,
-                generated_output=results,
-                feedback_score=score,
-                user_os=os,
-                session_id=sid
-            )
-            return {
-                feedback_container: gr.update(visible=False),
-                feedback_thanks_md: gr.update(value="🙏 **Thank you for your feedback!**", visible=True)
-            }
+            api_result = api_feedback(query, results, score, os, sid)
+            if 'error' in api_result:
+                return {"feedback_thanks_md": gr.update(value=f"❌ Feedback error: {api_result['error']}", visible=True)}
+            return {"feedback_thanks_md": gr.update(value="🙏 **Thank you for your feedback!**", visible=True)}
 
         def update_analytics():
             """Update all analytics sections."""
@@ -438,13 +448,5 @@ def build_interface():
 
     return demo
 
-if __name__ == "__main__":
-    demo = build_interface()
-    demo.launch(
-        server_name="0.0.0.0",  # Allow external connections
-        server_port=7860,       # Use standard Gradio port
-        share=False,            # Don't create public link
-        debug=False,            # Disable debug mode for production
-        show_error=True,        # Show errors in the interface
-        quiet=False             # Show startup messages
-    )
+# Note: Do NOT launch the app here. Use a separate runner script if needed.
+# This file now defines a Gradio UI that is fully decoupled from backend logic and uses the Flask API for all operations.
