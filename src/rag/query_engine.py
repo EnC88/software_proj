@@ -15,15 +15,18 @@ import faiss
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# Define repo root for robust file access
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
 class QueryEngine:
     """Production-ready query engine for RAG pipeline using hybrid embedder."""
     
     def __init__(self, 
-                 index_path: str = 'data/processed/faiss_index/index.faiss',
-                 id_to_chunk_path: str = 'data/processed/faiss_index/id_to_chunk.json',
-                 metadata_path: str = 'data/processed/embeddings/metadata.json',
-                 chunks_dir: str = 'data/processed/chunks',
-                 hybrid_model_path: str = 'data/processed/embeddings/hybrid_model'):
+                 index_path: str = None,
+                 id_to_chunk_path: str = None,
+                 metadata_path: str = None,
+                 chunks_dir: str = None,
+                 hybrid_model_path: str = None):
         """Initialize the query engine.
         
         Args:
@@ -33,11 +36,11 @@ class QueryEngine:
             chunks_dir: Directory containing chunk files
             hybrid_model_path: Path to hybrid embedder model
         """
-        self.index_path = Path(index_path)
-        self.id_to_chunk_path = Path(id_to_chunk_path)
-        self.metadata_path = Path(metadata_path)
-        self.chunks_dir = Path(chunks_dir)
-        self.hybrid_model_path = Path(hybrid_model_path)
+        self.index_path = Path(index_path) if index_path else REPO_ROOT / 'data' / 'processed' / 'faiss_index' / 'index.faiss'
+        self.id_to_chunk_path = Path(id_to_chunk_path) if id_to_chunk_path else REPO_ROOT / 'data' / 'processed' / 'faiss_index' / 'id_to_chunk.json'
+        self.metadata_path = Path(metadata_path) if metadata_path else REPO_ROOT / 'data' / 'processed' / 'embeddings' / 'metadata.json'
+        self.chunks_dir = Path(chunks_dir) if chunks_dir else REPO_ROOT / 'data' / 'processed' / 'chunks'
+        self.hybrid_model_path = Path(hybrid_model_path) if hybrid_model_path else REPO_ROOT / 'data' / 'embeddings' / 'hybrid_model'
         
         # Initialize components
         self.embedder = None
