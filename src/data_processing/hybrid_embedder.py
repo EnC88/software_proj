@@ -24,6 +24,10 @@ import re
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# Define repo root for robust file access
+REPO_ROOT = Path(__file__).resolve().parents[2]
+VECTORIZER_PATH = REPO_ROOT / 'data' / 'processed' / 'recommendation_index' / 'vectorizer.pkl'
+
 class HybridEmbedder:
     def __init__(self, max_features: int = 10000, embedding_dim: int = 300):
         """Initialize hybrid embedder.
@@ -229,10 +233,29 @@ class HybridEmbedder:
     
     def load(self, path):
         """Load the model."""
-        with open(os.path.join(path, 'vectorizer.pkl'), 'rb') as f:
-            self.vectorizer = pickle.load(f)
+        # Correctly load the vectorizer from the globally defined path
+        if os.path.exists(VECTORIZER_PATH):
+            with open(VECTORIZER_PATH, 'rb') as f:
+                self.vectorizer = pickle.load(f)
+        else:
+            # Fallback to the path provided if the global one doesn't exist
+            # This handles cases where the model is in a different directory
+            legacy_vectorizer_path = os.path.join(path, 'vectorizer.pkl')
+            if os.path.exists(legacy_vectorizer_path):
+                 with open(legacy_vectorizer_path, 'rb') as f:
+                    self.vectorizer = pickle.load(f)
+            else:
+                raise FileNotFoundError(f"Could not find vectorizer.pkl at {VECTORIZER_PATH} or {legacy_vectorizer_path}")
+
         
-        with open(os.path.join(path, 'config.json'), 'r') as f:
+        config_path = os.path.join(path, 'config.json')
+        if not os.path.exists(config_path):
+             # If config is missing, we can't proceed with loading this specific model
+             logger.warning(f"Config file not found at {config_path}. Skipping model load for this path.")
+             self.is_fitted = False
+             return
+
+        with open(config_path, 'r') as f:
             config = json.load(f)
             self.max_features = config['max_features']
             self.embedding_dim = config['embedding_dim']

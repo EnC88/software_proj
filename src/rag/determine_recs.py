@@ -41,7 +41,7 @@ class CompatibilityResult:
     warnings: List[str]
     alternative_versions: List[str]
 
-class CompatibilityAnalyzer:
+class CheckCompatibility:
     """Analyzes software change requests for compatibility."""
     
     def __init__(self, 
@@ -601,7 +601,7 @@ class CompatibilityAnalyzer:
 
 def main():
     """Test the compatibility analyzer."""
-    analyzer = CompatibilityAnalyzer()
+    analyzer = CheckCompatibility()
     
     # Example queries for multi-upgrade, multi-action parsing and analysis
     test_requests = [

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 import numpy as np
 import faiss
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -53,34 +54,61 @@ class QueryEngine:
     
     def _load_components(self):
         """Load all required components."""
+        # Wrap component loading in individual try-except blocks for resilience
         try:
-            # Load hybrid embedder
             logger.info(f"Loading hybrid embedder from {self.hybrid_model_path}")
-            import sys
-            sys.path.append(str(Path(__file__).parent.parent))
             from data_processing.hybrid_embedder import HybridEmbedder
             self.embedder = HybridEmbedder()
             self.embedder.load(self.hybrid_model_path)
             logger.info("Hybrid embedder loaded successfully")
-            
-            # Load FAISS index
+        except FileNotFoundError as e:
+            logger.error(f"CRITICAL: Failed to load hybrid embedder model: {e}")
+            logger.error("The backend API will run, but all query analysis will fail.")
+            logger.error("Please ensure the model file exists at the specified path.")
+            self.embedder = None  # Ensure embedder is None so queries fail gracefully
+        except Exception as e:
+            logger.error(f"An unexpected error occurred while loading the embedder: {e}")
+            self.embedder = None
+
+        try:
             logger.info(f"Loading FAISS index from {self.index_path}")
+            if not os.path.exists(self.index_path):
+                raise FileNotFoundError(f"FAISS index file not found at {self.index_path}")
             self.index = faiss.read_index(str(self.index_path))
             logger.info(f"FAISS index loaded with {self.index.ntotal} vectors")
-            
-            # Load id-to-chunk mapping
+        except FileNotFoundError as e:
+            logger.error(f"CRITICAL: {e}. Queries will fail.")
+            self.index = None
+        except Exception as e:
+            logger.error(f"Error loading FAISS index: {str(e)}")
+            self.index = None
+
+        # Load other components with similar resilience
+        try:
             logger.info(f"Loading id-to-chunk mapping from {self.id_to_chunk_path}")
             with open(self.id_to_chunk_path, 'r') as f:
                 self.id_to_chunk = json.load(f)
             logger.info(f"Loaded {len(self.id_to_chunk)} id-to-chunk mappings")
-            
-            # Load metadata
+        except FileNotFoundError:
+            logger.warning(f"id_to_chunk.json not found at {self.id_to_chunk_path}. Search results may be incomplete.")
+            self.id_to_chunk = {}
+        except Exception as e:
+            logger.error(f"Error loading id-to-chunk mapping: {e}")
+            self.id_to_chunk = {}
+
+        try:
             logger.info(f"Loading metadata from {self.metadata_path}")
             with open(self.metadata_path, 'r') as f:
                 self.metadata = json.load(f)
             logger.info(f"Loaded metadata for {len(self.metadata)} chunks")
+        except FileNotFoundError:
+            logger.warning(f"metadata.json not found at {self.metadata_path}. Search results may lack detail.")
+            self.metadata = {}
+        except Exception as e:
+            logger.error(f"Error loading metadata: {e}")
+            self.metadata = {}
             
-            # Load chunks
+        try:
             logger.info(f"Loading chunks from {self.chunks_dir}")
             for chunk_file in sorted(self.chunks_dir.glob('chunk_*.json')):
                 with open(chunk_file, 'r') as f:
@@ -88,10 +116,12 @@ class QueryEngine:
                     chunk_id = chunk_file.stem
                     self.chunks[chunk_id] = chunk_data
             logger.info(f"Loaded {len(self.chunks)} chunks")
-            
+        except FileNotFoundError:
+            logger.warning(f"Chunks directory not found at {self.chunks_dir}. Search results may be incomplete.")
+            self.chunks = {}
         except Exception as e:
-            logger.error(f"Error loading components: {str(e)}")
-            raise
+            logger.error(f"Error loading chunks: {e}")
+            self.chunks = {}
     
     def query(self, query_text: str, top_k: int = 5) -> List[Dict[str, Any]]:
         """Query the index for similar chunks.
@@ -103,6 +133,9 @@ class QueryEngine:
         Returns:
             List of dictionaries containing chunk info and similarity scores
         """
+        if not self.embedder or not self.index:
+            logger.error("Cannot perform query: Embedder or FAISS index is not loaded.")
+            return []
         try:
             # Embed the query using hybrid embedder
             query_embedding = self.embedder.encode([query_text], convert_to_numpy=True)

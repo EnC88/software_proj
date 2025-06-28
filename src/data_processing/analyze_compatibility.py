@@ -182,7 +182,8 @@ class CompatibilityAnalyzer:
                 "by_environment": env_summaries,
                 "by_manufacturer": manufacturer_summaries
             },
-            "sor_history": sor_history
+            "sor_history": sor_history,
+            "database_models_from_sor_history": self.get_database_models_from_sor_history()
         }
         
         with open(filepath, 'w') as f:
@@ -195,6 +196,52 @@ class CompatibilityAnalyzer:
             db_models = self.webserver_data[self.webserver_data['OBJECTNAME'] == 'DATABASEINSTANCE']['MODEL_x'].dropna().unique()
             return sorted(db_models)
         return []
+
+    def build_catalogid_to_model_mapping_from_pcat(self):
+        """Build a mapping from CATALOGID to model+version from PCat.csv."""
+        if self.pcat_data is not None and 'CATALOGID' in self.pcat_data.columns:
+            # Assuming PCat has MODEL and VERSION columns
+            self.catalogid_to_pcat_model = {}
+            for _, row in self.pcat_data.iterrows():
+                cat_id = row['CATALOGID']
+                model = row.get('MODEL', '')
+                version = row.get('VERSION', '')
+                # Form the model string (e.g., "APACHE HTTPD 2.4")
+                model_str = f"{model} {version}".strip()
+                if model_str:
+                    self.catalogid_to_pcat_model[cat_id] = model_str
+        else:
+            self.catalogid_to_pcat_model = {}
+
+    def get_database_models_from_sor_history(self):
+        """Return sorted list of unique model names for DATABASEINSTANCE changes."""
+        models = set()
+        if self.sor_hist_data is not None and 'OBJECTNAME' in self.sor_hist_data.columns:
+            db_rows = self.sor_hist_data[self.sor_hist_data['OBJECTNAME'] == 'DATABASEINSTANCE']
+
+            # 1. Use OLD_MAPPED/NEW_MAPPED for MODEL changes
+            model_rows = db_rows[db_rows['ATTRIBUTENAME'] == 'MODEL']
+            if 'OLD_MAPPED' in model_rows.columns:
+                models.update(model_rows['OLD_MAPPED'].dropna().unique())
+            if 'NEW_MAPPED' in model_rows.columns:
+                models.update(model_rows['NEW_MAPPED'].dropna().unique())
+
+            # 2. For CATALOGID changes, get model from column next to CATALOGID in PCat
+            catalogid_rows = db_rows[db_rows['ATTRIBUTENAME'] == 'CATALOGID']
+            if self.pcat_data is not None and 'CATALOGID' in self.pcat_data.columns:
+                columns = list(self.pcat_data.columns)
+                cat_idx = columns.index('CATALOGID')
+                # Defensive: if MODEL is not the next column, fallback to 'MODEL'
+                model_col = columns[cat_idx + 1] if cat_idx + 1 < len(columns) else 'MODEL'
+                for col in ['OLDVALUE', 'NEWVALUE']:
+                    if col in catalogid_rows.columns:
+                        for cid in catalogid_rows[col].dropna().unique():
+                            match = self.pcat_data[self.pcat_data['CATALOGID'].astype(str) == str(cid)]
+                            if not match.empty:
+                                model = match.iloc[0][model_col] if model_col in match.columns else match.iloc[0].get('MODEL', None)
+                                if pd.notnull(model) and str(model).strip():
+                                    models.add(str(model).strip())
+        return sorted(m for m in models if m)
 
 def main():
     analyzer = CompatibilityAnalyzer()

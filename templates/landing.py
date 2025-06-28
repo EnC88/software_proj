@@ -2,8 +2,9 @@ import gradio as gr
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from src.rag.determine_recs import CompatibilityAnalyzer, CompatibilityResult, ChangeRequest
+from src.rag.determine_recs import CheckCompatibility, CompatibilityResult, ChangeRequest
 from src.evaluation.feedback_system import FeedbackLogger
+from src.data_processing.analyze_compatibility import CompatibilityAnalyzer
 import uuid
 import plotly.graph_objects as go
 import plotly.express as px
@@ -12,9 +13,12 @@ from datetime import datetime, timedelta
 import json
 import re
 
+# For RAG/LLM compatibility logic
+compat_checker = CheckCompatibility()
+# For data analysis and dropdown
 analyzer = CompatibilityAnalyzer()
 analyzer.load_data()
-db_model_options = analyzer.get_database_models()
+db_model_options = analyzer.get_database_models_from_sor_history()
 
 feedback_logger = FeedbackLogger()
 
@@ -304,15 +308,18 @@ def build_interface():
             """Main analysis function using multi-upgrade logic."""
             if not request_text.strip():
                 return {"results_md": gr.update(value="<div class='results-container section-empty'>⚠️ Please enter a software change request.</div>", visible=True)}
-            change_requests = analyzer.parse_multiple_change_requests(request_text)
-            results = analyzer.analyze_multiple_compatibility(change_requests, target_os=current_os)
+            change_requests = compat_checker.parse_multiple_change_requests(request_text)
+            results = compat_checker.analyze_multiple_compatibility(change_requests, target_os=current_os)
             output = [f"<div>Selected Database: <b>{selected_db}</b></div><br>"]
             if not results:
                 output.append("<div class='section-empty'>Could not parse any valid change requests.</div>")
             else:
                 for cr, result in results:
                     # Header for each request
-                    output.append(f"<h3 class='section-header'>Request: {cr.title} {cr.software_name} {cr.version or ''}</h3>")
+                    req_str = f"{cr.action.title()} {cr.software_name}"
+                    if cr.version:
+                        req_str += f" {cr.version}"
+                    output.append(f"<h3 class='section-header'>Request: {req_str}</h3>")
                     # Format each section
                     output.append(format_status(result))
                     output.append("<div class='section-header'>🗂️ Affected Models</div>")
@@ -344,7 +351,8 @@ def build_interface():
         def log_feedback(score, query, results, os, sid):
             """Logs feedback and shows a thank you message."""
             feedback_logger.log(query=query, generated_output=results, feedback_score=score, user_os=os, session_id=sid)
-            return {"feedback_thanks_md": gr.update(value="🙏 **Thank you for your feedback!**", visible=True)}
+            # Hide feedback_container, show thank you message
+            return gr.update(visible=False), gr.update(value="🙏 **Thank you for your feedback!**", visible=True)
 
         def update_analytics():
             """Update all analytics sections."""
