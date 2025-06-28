@@ -14,17 +14,15 @@ from typing import List, Dict, Any, Optional, Union
 import numpy as np
 import pandas as pd
 from datetime import datetime
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 # Add parent directories to path for imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 # LangChain imports
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.vectorstores import FAISS
 from langchain.schema import Document
-from langchain.retrievers import ContextualCompressionRetriever
-from langchain.retrievers.document_compressors import LLMChainExtractor
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 from langchain.memory import ConversationBufferMemory
@@ -50,8 +48,129 @@ logger = logging.getLogger(__name__)
 # Define repo root for robust file access
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
+class SimpleVectorStore:
+    """Simple vector store using TF-IDF for offline operation."""
+    
+    def __init__(self, documents: List[Document] = None):
+        self.documents = documents or []
+        self.vectorizer = None
+        self.tfidf_matrix = None
+        self._build_index()
+    
+    def _build_index(self):
+        """Build TF-IDF index from documents."""
+        if not self.documents:
+            return
+        
+        # Extract text content
+        texts = [doc.page_content for doc in self.documents]
+        
+        # Create TF-IDF vectorizer
+        self.vectorizer = TfidfVectorizer(
+            max_features=1000,
+            stop_words='english',
+            ngram_range=(1, 2)
+        )
+        
+        # Build TF-IDF matrix
+        self.tfidf_matrix = self.vectorizer.fit_transform(texts)
+        logger.info(f"Built TF-IDF index with {len(self.documents)} documents")
+    
+    def similarity_search(self, query: str, k: int = 5) -> List[Document]:
+        """Search for similar documents using TF-IDF."""
+        if not self.vectorizer or not self.tfidf_matrix:
+            return []
+        
+        # Vectorize query
+        query_vector = self.vectorizer.transform([query])
+        
+        # Calculate similarities
+        similarities = cosine_similarity(query_vector, self.tfidf_matrix).flatten()
+        
+        # Get top k results
+        top_indices = similarities.argsort()[-k:][::-1]
+        
+        results = []
+        for idx in top_indices:
+            if similarities[idx] > 0:  # Only include relevant results
+                results.append(self.documents[idx])
+        
+        return results
+    
+    def add_documents(self, documents: List[Document]):
+        """Add documents to the store."""
+        self.documents.extend(documents)
+        self._build_index()  # Rebuild index
+    
+    def save_local(self, path: str):
+        """Save the vector store to disk."""
+        try:
+            save_path = Path(path)
+            save_path.mkdir(parents=True, exist_ok=True)
+            
+            # Save documents
+            docs_data = []
+            for doc in self.documents:
+                docs_data.append({
+                    'content': doc.page_content,
+                    'metadata': doc.metadata
+                })
+            
+            with open(save_path / 'documents.json', 'w') as f:
+                json.dump(docs_data, f, indent=2)
+            
+            # Save vectorizer
+            import pickle
+            with open(save_path / 'vectorizer.pkl', 'wb') as f:
+                pickle.dump(self.vectorizer, f)
+            
+            # Save TF-IDF matrix
+            import scipy.sparse
+            scipy.sparse.save_npz(save_path / 'tfidf_matrix.npz', self.tfidf_matrix)
+            
+            logger.info(f"Vector store saved to {path}")
+            
+        except Exception as e:
+            logger.error(f"Error saving vector store: {e}")
+    
+    @classmethod
+    def load_local(cls, path: str):
+        """Load the vector store from disk."""
+        try:
+            load_path = Path(path)
+            
+            # Load documents
+            with open(load_path / 'documents.json', 'r') as f:
+                docs_data = json.load(f)
+            
+            documents = []
+            for doc_data in docs_data:
+                documents.append(Document(
+                    page_content=doc_data['content'],
+                    metadata=doc_data['metadata']
+                ))
+            
+            # Create instance
+            instance = cls(documents)
+            
+            # Load vectorizer and matrix
+            import pickle
+            import scipy.sparse
+            
+            with open(load_path / 'vectorizer.pkl', 'rb') as f:
+                instance.vectorizer = pickle.load(f)
+            
+            instance.tfidf_matrix = scipy.sparse.load_npz(load_path / 'tfidf_matrix.npz')
+            
+            logger.info(f"Vector store loaded from {path}")
+            return instance
+            
+        except Exception as e:
+            logger.error(f"Error loading vector store: {e}")
+            return cls()
+
 class VectorStore:
-    """Industry-standard vector store implementation using LangChain.
+    """Industry-standard vector store implementation using local components.
     
     Works completely offline with free local models only.
     No API keys or paid services required.
@@ -59,7 +178,6 @@ class VectorStore:
     
     def __init__(self, 
                  data_dir: str = None,
-                 embeddings_model: str = "sentence-transformers/all-MiniLM-L6-v2",
                  use_local_llm: bool = True,
                  local_llm_model: str = "llama2",
                  chunk_size: int = 1000,
@@ -68,21 +186,18 @@ class VectorStore:
         
         Args:
             data_dir: Directory containing source data
-            embeddings_model: HuggingFace model for embeddings (free)
             use_local_llm: Whether to use a free local LLM
             local_llm_model: Local LLM model name (llama2, mistral, etc.)
             chunk_size: Size of text chunks for processing
             chunk_overlap: Overlap between text chunks
         """
         self.data_dir = Path(data_dir) if data_dir else REPO_ROOT / 'data'
-        self.embeddings_model = embeddings_model
         self.use_local_llm = use_local_llm
         self.local_llm_model = local_llm_model
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         
         # Initialize components
-        self.embeddings = None
         self.vectorstore = None
         self.text_splitter = None
         self.llm = None
@@ -96,16 +211,8 @@ class VectorStore:
         self._load_and_process_data()
     
     def _initialize_components(self):
-        """Initialize LangChain components with improved error handling."""
+        """Initialize components with improved error handling."""
         try:
-            # Initialize embeddings (always free and local)
-            logger.info(f"Initializing embeddings with model: {self.embeddings_model}")
-            self.embeddings = HuggingFaceEmbeddings(
-                model_name=self.embeddings_model,
-                model_kwargs={'device': 'cpu'},
-                encode_kwargs={'normalize_embeddings': True}
-            )
-            
             # Initialize text splitter with configurable parameters
             self.text_splitter = RecursiveCharacterTextSplitter(
                 chunk_size=self.chunk_size,
@@ -219,10 +326,7 @@ class VectorStore:
         """Create and save the vectorstore."""
         try:
             logger.info(f"Creating vectorstore with {len(self.documents)} documents")
-            self.vectorstore = FAISS.from_documents(
-                self.documents, 
-                self.embeddings
-            )
+            self.vectorstore = SimpleVectorStore(self.documents)
             
             # Save vectorstore
             vectorstore_path = self.data_dir / 'processed' / 'vectorstore'
@@ -390,28 +494,15 @@ Answer:"""
                 input_variables=["context", "question"]
             )
             
-            # Create QA chain
-            self.qa_chain = RetrievalQA.from_chain_type(
-                llm=self.llm,
-                chain_type="stuff",
-                retriever=self.vectorstore.as_retriever(search_kwargs={"k": 5}),
-                chain_type_kwargs={"prompt": prompt}
-            )
+            # Create simple QA chain without LangChain's RetrievalQA
+            # We'll implement a custom one that works with our SimpleVectorStore
+            self.qa_chain = {
+                'llm': self.llm,
+                'prompt': prompt,
+                'vectorstore': self.vectorstore
+            }
             
-            # Create conversational chain with memory
-            memory = ConversationBufferMemory(
-                memory_key="chat_history",
-                return_messages=True
-            )
-            
-            self.conversation_chain = ConversationalRetrievalChain.from_llm(
-                llm=self.llm,
-                retriever=self.vectorstore.as_retriever(search_kwargs={"k": 5}),
-                memory=memory,
-                return_source_documents=True
-            )
-            
-            logger.info("QA chains initialized successfully")
+            logger.info("QA chain initialized successfully")
             
         except Exception as e:
             logger.error(f"Error initializing QA chain: {e}")
@@ -442,7 +533,7 @@ Answer:"""
                     'rank': i + 1,
                     'content': doc.page_content,
                     'metadata': doc.metadata,
-                    'score': None  # FAISS doesn't return scores by default
+                    'score': None  # TF-IDF doesn't return scores in our implementation
                 }
                 results.append(result)
             
@@ -453,9 +544,19 @@ Answer:"""
             }
             
             # Add LLM response if requested and available
-            if use_llm and self.qa_chain:
+            if use_llm and self.qa_chain and self.llm:
                 try:
-                    llm_response = self.qa_chain.run(query_text)
+                    # Create context from top results
+                    context = "\n\n".join([doc.page_content for doc in docs[:3]])
+                    
+                    # Format prompt
+                    formatted_prompt = self.qa_chain['prompt'].format(
+                        context=context,
+                        question=query_text
+                    )
+                    
+                    # Get LLM response
+                    llm_response = self.llm(formatted_prompt)
                     response['llm_response'] = llm_response
                 except Exception as e:
                     logger.error(f"Error getting LLM response: {e}")
@@ -468,33 +569,39 @@ Answer:"""
             return {"error": str(e)}
     
     def conversational_query(self, query_text: str, chat_history: List[Dict] = None) -> Dict[str, Any]:
-        """Perform a conversational query with memory.
-        
-        Args:
-            query_text: The query text
-            chat_history: Previous conversation history
-            
-        Returns:
-            Dictionary containing response and updated chat history
-        """
-        if not self.conversation_chain:
-            logger.error("Conversational chain not initialized")
+        """Perform a conversational query with memory."""
+        if not self.llm:
+            logger.error("LLM not available for conversational queries")
             return {"error": "Conversational features not available"}
         
         try:
+            # Get relevant documents
+            docs = self.vectorstore.similarity_search(query_text, k=5)
+            context = "\n\n".join([doc.page_content for doc in docs])
+            
+            # Create conversation prompt
+            conversation_prompt = f"""You are a software compatibility expert. Use the following context to answer the user's question.
+
+Context:
+{context}
+
+Question: {query_text}
+
+Answer:"""
+            
             # Get response
-            result = self.conversation_chain({"question": query_text})
+            response = self.llm(conversation_prompt)
             
             return {
                 'query': query_text,
-                'response': result['answer'],
+                'response': response,
                 'source_documents': [
                     {
                         'content': doc.page_content,
                         'metadata': doc.metadata
-                    } for doc in result.get('source_documents', [])
+                    } for doc in docs
                 ],
-                'chat_history': result.get('chat_history', [])
+                'chat_history': chat_history or []
             }
             
         except Exception as e:
@@ -505,21 +612,17 @@ Answer:"""
         """Get comprehensive statistics about the vector store."""
         stats = {
             'total_documents': len(self.documents),
-            'embeddings_model': self.embeddings_model,
             'use_local_llm': self.use_local_llm,
             'local_llm_model': self.local_llm_model,
             'vectorstore_available': self.vectorstore is not None,
             'qa_chain_available': self.qa_chain is not None,
-            'conversation_chain_available': self.conversation_chain is not None,
             'is_initialized': self.is_initialized,
             'chunk_size': self.chunk_size,
             'chunk_overlap': self.chunk_overlap,
             'cost': 'Completely Free (Local Models Only)',
-            'privacy': '100% Local - No Data Sent to External Services'
+            'privacy': '100% Local - No Data Sent to External Services',
+            'embeddings': 'TF-IDF (Local, No External Dependencies)'
         }
-        
-        if self.vectorstore:
-            stats['vectorstore_size'] = self.vectorstore.index.ntotal
         
         # Document type breakdown
         doc_types = {}
@@ -568,7 +671,7 @@ Answer:"""
         try:
             vectorstore_path = self.data_dir / 'processed' / 'vectorstore'
             if vectorstore_path.exists():
-                self.vectorstore = FAISS.load_local(str(vectorstore_path), self.embeddings)
+                self.vectorstore = SimpleVectorStore.load_local(str(vectorstore_path))
                 logger.info("Vectorstore reloaded successfully")
                 return True
             else:
