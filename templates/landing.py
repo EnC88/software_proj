@@ -46,154 +46,60 @@ db_model_options = analyzer.get_database_models_from_sor_history()
 
 feedback_logger = FeedbackLogger()
 
-# Simple compatibility checker using VectorStore
-class SimpleCompatibilityChecker:
+# Simple query interface using VectorStore
+class SimpleQueryInterface:
     def __init__(self, vector_store: VectorStore):
         self.vector_store = vector_store
     
-    def parse_change_request(self, text: str) -> ChangeRequest:
-        """Simple parsing of change request."""
-        text = text.lower().strip()
-        
-        # Extract software name and version
-        software_name = None
-        version = None
-        action = "upgrade"
-        environment = None
-        
-        # Common software patterns
-        software_patterns = [
-            r'(apache|httpd|tomcat)',
-            r'(nginx)',
-            r'(websphere|ibm)',
-            r'(mysql|postgresql|oracle|db2)',
-            r'(python|java|node\.js|php)',
-            r'(windows|linux|rhel|ubuntu)'
-        ]
-        
-        # Version patterns
-        version_patterns = [
-            r'(\d+\.\d+\.\d+)',  # 2.4.50
-            r'(\d+\.\d+)',       # 2.4
-            r'version (\d+\.\d+\.\d+)',
-            r'v(\d+\.\d+\.\d+)'
-        ]
-        
-        # Action patterns
-        if any(word in text for word in ['install', 'add', 'new']):
-            action = "install"
-        elif any(word in text for word in ['remove', 'uninstall', 'delete']):
-            action = "remove"
-        elif any(word in text for word in ['downgrade', 'rollback']):
-            action = "downgrade"
-        
-        # Environment patterns
-        env_patterns = {
-            'dev': ['dev', 'development'],
-            'uat': ['uat', 'staging', 'test'],
-            'prod': ['prod', 'production', 'live']
-        }
-        
-        for env, patterns in env_patterns.items():
-            if any(pattern in text for pattern in patterns):
-                environment = env.upper()
-                break
-        
-        # Extract software name
-        for pattern in software_patterns:
-            match = re.search(pattern, text)
-            if match:
-                software_name = match.group(1).upper()
-                break
-        
-        # Extract version
-        for pattern in version_patterns:
-            match = re.search(pattern, text)
-            if match:
-                version = match.group(1)
-                break
-        
-        return ChangeRequest(
-            software_name=software_name or "UNKNOWN",
-            version=version,
-            action=action,
-            environment=environment,
-            raw_text=text
-        )
-    
-    def analyze_compatibility(self, change_request: ChangeRequest, target_os: Optional[str] = None) -> CompatibilityResult:
-        """Analyze compatibility using VectorStore search."""
+    def query(self, query_text: str, top_k: int = 5) -> Dict[str, Any]:
+        """Simple query using VectorStore."""
         try:
-            # Create search query
-            query_parts = []
-            if change_request.software_name != "UNKNOWN":
-                query_parts.append(change_request.software_name)
-            if change_request.version:
-                query_parts.append(f"version {change_request.version}")
-            if change_request.environment:
-                query_parts.append(change_request.environment)
-            if target_os:
-                query_parts.append(target_os)
-            
-            search_query = " ".join(query_parts) if query_parts else change_request.raw_text
-            
-            # Search for relevant documents
-            results = self.vector_store.query(search_query, top_k=10)
-            
-            # Analyze results
-            affected_servers = []
-            conflicts = []
-            recommendations = []
-            warnings = []
-            alternative_versions = []
-            
-            for result in results:
-                content = result.get('content', {})
-                if isinstance(content, dict):
-                    # Extract server information
-                    if 'server_info' in content:
-                        affected_servers.append(content)
-                    
-                    # Extract conflicts and recommendations
-                    if 'conflicts' in content:
-                        conflicts.extend(content['conflicts'])
-                    if 'recommendations' in content:
-                        recommendations.extend(content['recommendations'])
-                    if 'warnings' in content:
-                        warnings.extend(content['warnings'])
-                    if 'alternative_versions' in content:
-                        alternative_versions.extend(content['alternative_versions'])
-            
-            # Calculate confidence based on number of relevant results
-            confidence = min(len(results) / 10.0, 1.0) if results else 0.0
-            
-            # Determine compatibility (simplified logic)
-            is_compatible = len(conflicts) == 0 and confidence > 0.3
-            
-            return CompatibilityResult(
-                is_compatible=is_compatible,
-                confidence=confidence,
-                affected_servers=affected_servers,
-                conflicts=list(set(conflicts)),  # Remove duplicates
-                recommendations=list(set(recommendations)),
-                warnings=list(set(warnings)),
-                alternative_versions=list(set(alternative_versions))
-            )
-            
+            results = self.vector_store.query(query_text, top_k=top_k)
+            return results
         except Exception as e:
-            print(f"Error analyzing compatibility: {e}")
-            return CompatibilityResult(
-                is_compatible=False,
-                confidence=0.0,
-                affected_servers=[],
-                conflicts=[f"Analysis error: {str(e)}"],
-                recommendations=["Please try a different query"],
-                warnings=[],
-                alternative_versions=[]
-            )
+            return {"error": str(e), "query": query_text, "results": [], "total_results": 0}
+    
+    def format_results(self, results: Dict[str, Any]) -> str:
+        """Format results for display."""
+        if "error" in results:
+            return f"<div class='results-container'><div class='section-empty'>❌ Error: {results['error']}</div></div>"
+        
+        if not results.get('results'):
+            return "<div class='results-container'><div class='section-empty'>No results found. Try a different query.</div></div>"
+        
+        output = ["<div class='results-container'>"]
+        output.append(f"<h3>🔍 Search Results for: <em>'{results['query']}'</em></h3>")
+        output.append(f"<p><strong>Found {results['total_results']} relevant documents:</strong></p>")
+        
+        for i, result in enumerate(results['results'], 1):
+            content = result.get('content', 'No content')
+            metadata = result.get('metadata', {})
+            
+            # Format the content nicely
+            content_lines = content.split('\n')
+            formatted_content = '<br>'.join(content_lines)
+            
+            # Get metadata info
+            doc_type = metadata.get('type', 'unknown')
+            timestamp = metadata.get('timestamp', 'Unknown')
+            
+            output.append(f"""
+            <div style='border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; margin: 1rem 0; background: #f8fafc;'>
+                <h4 style='margin: 0 0 0.5rem 0; color: #1e293b;'>Result {i}</h4>
+                <div style='font-size: 0.9em; color: #64748b; margin-bottom: 0.5rem;'>
+                    Type: {doc_type} | Timestamp: {timestamp}
+                </div>
+                <div style='background: white; padding: 1rem; border-radius: 4px; border-left: 4px solid #3b82f6;'>
+                    {formatted_content}
+                </div>
+            </div>
+            """)
+        
+        output.append("</div>")
+        return ''.join(output)
 
-# Initialize compatibility checker
-compat_checker = SimpleCompatibilityChecker(vector_store)
+# Initialize query interface
+query_interface = SimpleQueryInterface(vector_store)
 
 # --- Analytics Functions ---
 def get_analytics_data():
@@ -387,12 +293,12 @@ def build_interface():
         with gr.Row():
             with gr.Column(scale=3):
                 gr.Markdown("""
-                <div class='main-title'>AI Compliance Advisor</div>
-                <div class='subtitle'>Analyze your software change requests for compatibility with your infrastructure</div>
+                <div class='main-title'>Infrastructure Search Assistant</div>
+                <div class='subtitle'>Ask questions about your servers, software, and infrastructure</div>
                 """)
                 request_box = gr.Textbox(
-                    label="Software Change Request",
-                    placeholder="E.g. 'Upgrade Apache 2.4.50 and remove Tomcat 9.0 in production'",
+                    label="Your Question",
+                    placeholder="E.g. 'What servers are running Apache HTTPD?' or 'What OS does Apache run best on?'",
                     lines=4,
                     elem_id="request-box"
                 )
@@ -401,17 +307,17 @@ def build_interface():
                     label="Database Used",
                     interactive=True
                 )
-                analyze_btn = gr.Button("Run Analysis", elem_id="analyze-btn", variant="primary")
+                analyze_btn = gr.Button("Search Infrastructure", elem_id="analyze-btn", variant="primary")
                 
                 # --- Results Section ---
                 results_md = gr.Markdown(visible=False)
 
                 # --- Feedback Section ---
                 with gr.Column(visible=False) as feedback_container:
-                    gr.Markdown("**Rate this analysis**", elem_id="feedback-header")
+                    gr.Markdown("**Rate these search results**", elem_id="feedback-header")
                     with gr.Row():
-                        feedback_good_btn = gr.Button("👍 Looks Good")
-                        feedback_bad_btn = gr.Button("👎 Needs Improvement")
+                        feedback_good_btn = gr.Button("👍 Helpful Results")
+                        feedback_bad_btn = gr.Button("👎 Not Helpful")
                     feedback_thanks_md = gr.Markdown(visible=False)
 
                 # --- Analytics Section ---
@@ -478,48 +384,24 @@ def build_interface():
             }
 
         def on_analyze(request_text, current_os, selected_db):
-            """Main analysis function using multi-upgrade logic."""
+            """Simple search function using VectorStore."""
             if not request_text.strip():
-                return {"results_md": gr.update(value="<div class='results-container section-empty'>⚠️ Please enter a software change request.</div>", visible=True)}
-            change_requests = compat_checker.parse_multiple_change_requests(request_text)
-            results = compat_checker.analyze_multiple_compatibility(change_requests, target_os=current_os)
-            output = [f"<div>Selected Database: <b>{selected_db}</b></div><br>"]
-            if not results:
-                output.append("<div class='section-empty'>Could not parse any valid change requests.</div>")
-            else:
-                for cr, result in results:
-                    # Header for each request
-                    req_str = f"{cr.action.title()} {cr.software_name}"
-                    if cr.version:
-                        req_str += f" {cr.version}"
-                    output.append(f"<h3 class='section-header'>Request: {req_str}</h3>")
-                    # Format each section
-                    output.append(format_status(result))
-                    output.append("<div class='section-header'>🗂️ Affected Models</div>")
-                    output.append(format_affected_models(result))
-                    if result.conflicts:
-                        output.append("<div class='section-header'>⛔ Conflicts</div>")
-                        output.append(format_list_section(result.conflicts, highlight=False))
-                    if result.warnings:
-                        output.append("<div class='section-header'>⚠️ Warnings</div>")
-                        output.append(format_list_section(result.warnings, highlight=False))
-                    if result.recommendations:
-                        output.append("<div class='section-header'>💡 Recommendations</div>")
-                        output.append(format_list_section(result.recommendations, highlight=True))
-                    if result.alternative_versions:
-                        output.append("<div class='section-header'>🔄 Alternative Versions</div>")
-                        output.append(format_list_section(result.alternative_versions, highlight=False))
-                    output.append("<hr style='margin: 2em 0; border: 1px solid #e0e7ef;'>")
-
-            formatted_output = f"<div class='results-container'>{''.join(output)}</div>"
+                return {"results_md": gr.update(value="<div class='results-container section-empty'>⚠️ Please enter a question about your infrastructure.</div>", visible=True)}
             
-            return {
-                results_md: gr.update(value=formatted_output, visible=True),
-                feedback_container: gr.update(visible=True),
-                feedback_thanks_md: gr.update(visible=False),
-                last_query: request_text,
-                last_results: formatted_output
-            }
+            try:
+                # Use the query interface
+                results = query_interface.query(request_text, top_k=5)
+                formatted_results = query_interface.format_results(results)
+                
+                return {
+                    "results_md": gr.update(value=formatted_results, visible=True),
+                    "feedback_container": gr.update(visible=True),
+                    "last_query": request_text,
+                    "last_results": str(results)
+                }
+            except Exception as e:
+                error_msg = f"<div class='results-container'><div class='section-empty'>❌ Error: {str(e)}</div></div>"
+                return {"results_md": gr.update(value=error_msg, visible=True)}
 
         def log_feedback(score, query, results, os, sid):
             """Logs feedback and shows a thank you message."""

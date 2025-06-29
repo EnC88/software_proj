@@ -96,10 +96,12 @@ class SimpleVectorStore:
             for idx in top_indices:
                 try:
                     # Convert to scalar value to avoid numpy array comparison issues
-                    similarity_score = similarities[idx].item()  # Use .item() to get scalar
-                    if similarity_score > 0:  # Only include relevant results
+                    similarity_score = float(similarities[idx])  # Convert to float instead of .item()
+                    
+                    # Use explicit comparison with scalar value
+                    if similarity_score > 0.0:  # Only include relevant results
                         results.append(self.documents[idx])
-                except (ValueError, IndexError, AttributeError) as e:
+                except (ValueError, IndexError, AttributeError, TypeError) as e:
                     logger.warning(f"Error processing similarity score at index {idx}: {e}")
                     continue
             
@@ -298,6 +300,16 @@ class VectorStore:
         """Create and save the vectorstore."""
         try:
             logger.info(f"Creating vectorstore with {len(self.documents)} documents")
+            
+            if len(self.documents) == 0:
+                logger.warning("No documents available to create vectorstore")
+                self.is_initialized = False
+                return
+            
+            # Log some sample documents for debugging
+            for i, doc in enumerate(self.documents[:3]):
+                logger.info(f"Sample document {i+1}: {doc.page_content[:100]}...")
+            
             self.vectorstore = SimpleVectorStore(self.documents)
             
             # Save vectorstore
@@ -307,6 +319,7 @@ class VectorStore:
             logger.info(f"Vectorstore saved to {vectorstore_path}")
             
             self.is_initialized = True
+            logger.info("Vectorstore created and initialized successfully")
             
         except Exception as e:
             logger.error(f"Error creating vectorstore: {e}")
@@ -455,8 +468,13 @@ class VectorStore:
             return {"error": "Vectorstore not available"}
         
         try:
+            logger.info(f"Querying for: '{query_text}' with top_k={top_k}")
+            logger.info(f"Vectorstore has {len(self.documents)} documents")
+            
             # Get similar documents
             docs = self.vectorstore.similarity_search(query_text, k=top_k)
+            
+            logger.info(f"Found {len(docs)} similar documents")
             
             # Format results
             results = []
