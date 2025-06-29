@@ -2,7 +2,7 @@ import gradio as gr
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from src.rag.determine_recs import CheckCompatibility, CompatibilityResult, ChangeRequest
+from src.rag.vector_store import VectorStore
 from src.evaluation.feedback_system import FeedbackLogger
 from src.data_processing.analyze_compatibility import CompatibilityAnalyzer
 import uuid
@@ -12,15 +12,188 @@ import pandas as pd
 from datetime import datetime, timedelta
 import json
 import re
+from dataclasses import dataclass
+from typing import List, Dict, Any, Optional
+
+# Simple compatibility result classes
+@dataclass
+class CompatibilityResult:
+    """Result of compatibility analysis."""
+    is_compatible: bool
+    confidence: float
+    affected_servers: List[Dict[str, Any]]
+    conflicts: List[str]
+    recommendations: List[str]
+    warnings: List[str]
+    alternative_versions: List[str]
+
+@dataclass
+class ChangeRequest:
+    """Represents a user's software change request."""
+    software_name: str
+    version: Optional[str] = None
+    action: str = "upgrade"
+    environment: Optional[str] = None
+    target_servers: Optional[List[str]] = None
+    raw_text: str = ""
 
 # For RAG/LLM compatibility logic
-compat_checker = CheckCompatibility()
+vector_store = VectorStore()
 # For data analysis and dropdown
 analyzer = CompatibilityAnalyzer()
 analyzer.load_data()
 db_model_options = analyzer.get_database_models_from_sor_history()
 
 feedback_logger = FeedbackLogger()
+
+# Simple compatibility checker using VectorStore
+class SimpleCompatibilityChecker:
+    def __init__(self, vector_store: VectorStore):
+        self.vector_store = vector_store
+    
+    def parse_change_request(self, text: str) -> ChangeRequest:
+        """Simple parsing of change request."""
+        text = text.lower().strip()
+        
+        # Extract software name and version
+        software_name = None
+        version = None
+        action = "upgrade"
+        environment = None
+        
+        # Common software patterns
+        software_patterns = [
+            r'(apache|httpd|tomcat)',
+            r'(nginx)',
+            r'(websphere|ibm)',
+            r'(mysql|postgresql|oracle|db2)',
+            r'(python|java|node\.js|php)',
+            r'(windows|linux|rhel|ubuntu)'
+        ]
+        
+        # Version patterns
+        version_patterns = [
+            r'(\d+\.\d+\.\d+)',  # 2.4.50
+            r'(\d+\.\d+)',       # 2.4
+            r'version (\d+\.\d+\.\d+)',
+            r'v(\d+\.\d+\.\d+)'
+        ]
+        
+        # Action patterns
+        if any(word in text for word in ['install', 'add', 'new']):
+            action = "install"
+        elif any(word in text for word in ['remove', 'uninstall', 'delete']):
+            action = "remove"
+        elif any(word in text for word in ['downgrade', 'rollback']):
+            action = "downgrade"
+        
+        # Environment patterns
+        env_patterns = {
+            'dev': ['dev', 'development'],
+            'uat': ['uat', 'staging', 'test'],
+            'prod': ['prod', 'production', 'live']
+        }
+        
+        for env, patterns in env_patterns.items():
+            if any(pattern in text for pattern in patterns):
+                environment = env.upper()
+                break
+        
+        # Extract software name
+        for pattern in software_patterns:
+            match = re.search(pattern, text)
+            if match:
+                software_name = match.group(1).upper()
+                break
+        
+        # Extract version
+        for pattern in version_patterns:
+            match = re.search(pattern, text)
+            if match:
+                version = match.group(1)
+                break
+        
+        return ChangeRequest(
+            software_name=software_name or "UNKNOWN",
+            version=version,
+            action=action,
+            environment=environment,
+            raw_text=text
+        )
+    
+    def analyze_compatibility(self, change_request: ChangeRequest, target_os: Optional[str] = None) -> CompatibilityResult:
+        """Analyze compatibility using VectorStore search."""
+        try:
+            # Create search query
+            query_parts = []
+            if change_request.software_name != "UNKNOWN":
+                query_parts.append(change_request.software_name)
+            if change_request.version:
+                query_parts.append(f"version {change_request.version}")
+            if change_request.environment:
+                query_parts.append(change_request.environment)
+            if target_os:
+                query_parts.append(target_os)
+            
+            search_query = " ".join(query_parts) if query_parts else change_request.raw_text
+            
+            # Search for relevant documents
+            results = self.vector_store.query(search_query, top_k=10)
+            
+            # Analyze results
+            affected_servers = []
+            conflicts = []
+            recommendations = []
+            warnings = []
+            alternative_versions = []
+            
+            for result in results:
+                content = result.get('content', {})
+                if isinstance(content, dict):
+                    # Extract server information
+                    if 'server_info' in content:
+                        affected_servers.append(content)
+                    
+                    # Extract conflicts and recommendations
+                    if 'conflicts' in content:
+                        conflicts.extend(content['conflicts'])
+                    if 'recommendations' in content:
+                        recommendations.extend(content['recommendations'])
+                    if 'warnings' in content:
+                        warnings.extend(content['warnings'])
+                    if 'alternative_versions' in content:
+                        alternative_versions.extend(content['alternative_versions'])
+            
+            # Calculate confidence based on number of relevant results
+            confidence = min(len(results) / 10.0, 1.0) if results else 0.0
+            
+            # Determine compatibility (simplified logic)
+            is_compatible = len(conflicts) == 0 and confidence > 0.3
+            
+            return CompatibilityResult(
+                is_compatible=is_compatible,
+                confidence=confidence,
+                affected_servers=affected_servers,
+                conflicts=list(set(conflicts)),  # Remove duplicates
+                recommendations=list(set(recommendations)),
+                warnings=list(set(warnings)),
+                alternative_versions=list(set(alternative_versions))
+            )
+            
+        except Exception as e:
+            print(f"Error analyzing compatibility: {e}")
+            return CompatibilityResult(
+                is_compatible=False,
+                confidence=0.0,
+                affected_servers=[],
+                conflicts=[f"Analysis error: {str(e)}"],
+                recommendations=["Please try a different query"],
+                warnings=[],
+                alternative_versions=[]
+            )
+
+# Initialize compatibility checker
+compat_checker = SimpleCompatibilityChecker(vector_store)
 
 # --- Analytics Functions ---
 def get_analytics_data():

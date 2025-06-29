@@ -11,8 +11,8 @@ src/
 │   ├── spacy_embedder.py         # Generate embeddings with spaCy
 │   └── build_faiss_index.py      # Build FAISS index
 ├── rag/                     # RAG components
-│   ├── query_engine.py          # Query engine for similarity search
-│   └── compatibility_rag.py     # Legacy RAG implementation
+│   ├── vector_store.py          # Vector store for similarity search
+│   └── __init__.py
 ├── evaluation/              # Feedback and evaluation system
 │   ├── feedback_system.py       # Consolidated feedback system (43KB)
 │   │   ├── FeedbackLogger       # SQLite-based feedback logging
@@ -74,7 +74,8 @@ This will run:
 
 ### 3. Test Query Engine
 ```bash
-python src/rag/query_engine.py
+# Test the vector store
+python src/rag/vector_store.py
 ```
 
 ## 🐳 Docker Deployment
@@ -283,16 +284,16 @@ python src/data_processing/build_faiss_index.py
 
 ### Step 4: Querying
 ```python
-from src.rag.query_engine import QueryEngine
+from src.rag.vector_store import VectorStore
 
-# Initialize query engine
-engine = QueryEngine()
+# Initialize vector store
+store = VectorStore()
 
 # Query for similar chunks
-results = engine.query("What servers are compatible with Windows Server 2019?", top_k=5)
+results = store.query("What servers are compatible with Windows Server 2019?", top_k=5)
 
-# Format for LLM
-llm_context = engine.format_results_for_llm(results)
+# Get formatted results
+formatted_results = store.get_stats()
 ```
 
 ## 🔧 Configuration
@@ -305,12 +306,10 @@ llm_context = engine.format_results_for_llm(results)
 
 ### Custom Paths
 ```python
-engine = QueryEngine(
-    model_name='en_core_web_trf',
-    index_path='custom/path/index.faiss',
-    id_to_chunk_path='custom/path/id_to_chunk.json',
-    metadata_path='custom/path/metadata.json',
-    chunks_dir='custom/path/chunks'
+store = VectorStore(
+    data_dir='custom/path/data',
+    chunk_size=1000,
+    chunk_overlap=200
 )
 ```
 
@@ -347,38 +346,38 @@ engine = QueryEngine(
 
 1. **Data Changes**: Update raw data, run `pipeline.py`
 2. **Model Changes**: Update `spacy_embedder.py`, re-run pipeline
-3. **Query Logic**: Modify `query_engine.py`, test with sample queries
+3. **Query Logic**: Modify `vector_store.py`, test with sample queries
 
-## 📝 API Reference
+## 📄 API Reference
 
-### QueryEngine
+### VectorStore
 
 ```python
-class QueryEngine:
-    def __init__(self, model_name='en_core_web_trf', ...)
-    def query(self, query_text: str, top_k: int = 5) -> List[Dict]
-    def format_results_for_llm(self, results: List[Dict]) -> str
+class VectorStore:
+    def __init__(self, data_dir=None, chunk_size=1000, chunk_overlap=200)
+    def query(self, query_text: str, top_k: int = 5) -> Dict[str, Any]
     def get_stats(self) -> Dict[str, Any]
+    def add_document(self, content: str, metadata: Dict[str, Any] = None)
+    def reload_vectorstore(self)
 ```
 
 ### Example Usage
 
 ```python
-from src.rag.query_engine import QueryEngine
+from src.rag.vector_store import VectorStore
 
 # Initialize
-engine = QueryEngine()
+store = VectorStore()
 
 # Get system stats
-stats = engine.get_stats()
-print(f"Index size: {stats['index_size']}")
+stats = store.get_stats()
+print(f"Documents loaded: {stats['total_documents']}")
 
 # Query
-results = engine.query("Dell servers in production", top_k=3)
+results = store.query("Dell servers in production", top_k=3)
 
-# Use with LLM
-context = engine.format_results_for_llm(results)
-prompt = f"Based on this context: {context}\n\nAnswer the question: ..."
+# Add new document
+store.add_document("New server information", {"type": "server", "environment": "prod"})
 ```
 
 ## 🤝 Contributing

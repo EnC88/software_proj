@@ -232,10 +232,10 @@ class FeedbackIntegration:
     def _get_query_engine(self):
         if self.query_engine is None:
             try:
-                from ..rag.query_engine import QueryEngine
-                self.query_engine = QueryEngine()
+                from ..rag.vector_store import VectorStore
+                self.query_engine = VectorStore()
             except ImportError as e:
-                logger.error(f"Could not import QueryEngine: {e}")
+                logger.error(f"Could not import VectorStore: {e}")
                 raise
         return self.query_engine
     def query_with_feedback(self, query: str, top_k: int = 5, user_os: Optional[str] = None, auto_log: bool = True) -> Dict[str, Any]:

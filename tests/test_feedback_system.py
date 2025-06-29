@@ -86,21 +86,20 @@ class TestFeedbackLogger:
 class TestFeedbackIntegration:
     """Test cases for FeedbackIntegration."""
     
-    @patch('src.evaluation.feedback_system.QueryEngine')
-    def test_feedback_integration_initialization(self, mock_query_engine):
+    @patch('src.evaluation.feedback_system.VectorStore')
+    def test_feedback_integration_initialization(self, mock_vector_store):
         """Test FeedbackIntegration initialization."""
         integration = FeedbackIntegration()
         assert integration is not None
         assert integration.session_id is not None
     
-    @patch('src.evaluation.feedback_system.QueryEngine')
-    def test_query_with_feedback(self, mock_query_engine):
+    @patch('src.evaluation.feedback_system.VectorStore')
+    def test_query_with_feedback(self, mock_vector_store):
         """Test query with feedback functionality."""
-        # Mock the query engine
-        mock_engine = Mock()
-        mock_engine.query.return_value = [{'chunk_id': 'test', 'similarity_score': 0.8}]
-        mock_engine.format_results_for_llm.return_value = "formatted results"
-        mock_query_engine.return_value = mock_engine
+        # Mock the vector store
+        mock_store = Mock()
+        mock_store.query.return_value = {'results': [{'chunk_id': 'test', 'similarity_score': 0.8}]}
+        mock_vector_store.return_value = mock_store
         
         integration = FeedbackIntegration()
         response = integration.query_with_feedback("test query", top_k=5)
