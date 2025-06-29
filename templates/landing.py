@@ -39,10 +39,9 @@ class ChangeRequest:
 
 # For RAG/LLM compatibility logic
 vector_store = VectorStore()
-# For data analysis and dropdown
+# For data analysis (keeping for potential future use)
 analyzer = CompatibilityAnalyzer()
 analyzer.load_data()
-db_model_options = analyzer.get_database_models_from_sor_history()
 
 feedback_logger = FeedbackLogger()
 
@@ -302,11 +301,6 @@ def build_interface():
                     lines=4,
                     elem_id="request-box"
                 )
-                db_dropdown = gr.Dropdown(
-                    choices=db_model_options,
-                    label="Database Used",
-                    interactive=True
-                )
                 analyze_btn = gr.Button("Search Infrastructure", elem_id="analyze-btn", variant="primary")
                 
                 # --- Results Section ---
@@ -383,7 +377,7 @@ def build_interface():
                 os_select_dd: gr.update(visible=True)
             }
 
-        def on_analyze(request_text, current_os, selected_db):
+        def on_analyze(request_text, current_os):
             """Simple search function using VectorStore."""
             if not request_text.strip():
                 return {"results_md": gr.update(value="<div class='results-container section-empty'>⚠️ Please enter a question about your infrastructure.</div>", visible=True)}
@@ -433,7 +427,7 @@ def build_interface():
 
         analyze_btn.click(
             on_analyze, 
-            inputs=[request_box, user_os, db_dropdown], 
+            inputs=[request_box, user_os], 
             outputs=[results_md, feedback_container, feedback_thanks_md, last_query, last_results]
         )
 
