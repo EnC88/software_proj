@@ -15,7 +15,6 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 
 # Add parent directories to path for imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
@@ -23,7 +22,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')
 # LangChain imports
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
-
+import faiss 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -39,14 +38,17 @@ class SimpleVectorStore:
         self.documents = documents or []
         self.vectorizer = None
         self.tfidf_matrix = None
+        self.faiss_index = None
         self._build_index()
-    
+
+
     def _build_index(self):
         """Build TF-IDF index from documents."""
         try:
             if not self.documents:
                 logger.warning("No documents to build index from")
                 return
+
             
             # Extract text content
             texts = [doc.page_content for doc in self.documents]
@@ -63,16 +65,43 @@ class SimpleVectorStore:
             self.tfidf_matrix = self.vectorizer.fit_transform(texts)
             logger.info(f"Built TF-IDF index with {len(self.documents)} documents, matrix shape: {self.tfidf_matrix.shape}")
             
+            # Create FAISS index for similarity search
+            try:
+                logger.info("Converting sparse matrix to dense for FAISS...")
+                dense_matrix = self.tfidf_matrix.toarray().astype('float32')
+                logger.info(f"Dense matrix shape: {dense_matrix.shape}")
+                
+                dimension = dense_matrix.shape[1]
+                logger.info(f"Creating FAISS index with dimension: {dimension}")
+                self.faiss_index = faiss.IndexFlatIP(dimension)  # Inner product for cosine similarity
+                
+                logger.info("Adding vectors to FAISS index...")
+                self.faiss_index.add(dense_matrix)
+                logger.info(f"Built FAISS index with dimension: {dimension}")
+                
+            except Exception as faiss_error:
+                logger.error(f"Error creating FAISS index: {faiss_error}")
+                self.faiss_index = None
+            
         except Exception as e:
             logger.error(f"Error building TF-IDF index: {e}")
             self.vectorizer = None
             self.tfidf_matrix = None
+            self.faiss_index = None
     
-    def similarity_search(self, query: str, k: int = 5) -> List[Document]:
-        """Search for similar documents using TF-IDF."""
+    def similarity_search(self, query: str, k: int = 5) -> List[tuple]:
+        """Search for similar documents using FAISS with TF-IDF vectors.
+        
+        Returns:
+            List of tuples: (document, score)
+        """
         try:
-            if not self.vectorizer or not self.tfidf_matrix:
+            if self.vectorizer is None or self.tfidf_matrix is None:
                 logger.warning("Vectorizer or TF-IDF matrix not available")
+                return []
+            
+            if self.faiss_index is None:
+                logger.warning("FAISS index not available - similarity search cannot be performed")
                 return []
             
             # Check if we have any documents
@@ -80,35 +109,39 @@ class SimpleVectorStore:
                 logger.warning("No documents available for search")
                 return []
             
-            # Vectorize query
+            # Vectorize query using TF-IDF
             query_vector = self.vectorizer.transform([query])
             
-            # Calculate similarities
-            similarities = cosine_similarity(query_vector, self.tfidf_matrix)
+            # Use FAISS for similarity search
+            query_dense = query_vector.toarray().astype('float32')
+            scores, indices = self.faiss_index.search(query_dense, k)
             
-            # Ensure similarities is a 1D array and convert to numpy array
-            similarities = np.asarray(similarities).flatten()
+            logger.info(f"FAISS search returned scores shape: {scores.shape}, indices shape: {indices.shape}")
             
-            # Get top k results
-            top_indices = similarities.argsort()[-k:][::-1]
-            
+            # Convert to list of (document, score) tuples
             results = []
-            for idx in top_indices:
+            
+            # Process each result
+            for i in range(len(indices[0])):
                 try:
-                    # Convert to scalar value to avoid numpy array comparison issues
-                    similarity_score = float(similarities[idx])  # Convert to float instead of .item()
+                    # Get index and score as Python scalars
+                    doc_idx = int(indices[0][i].item())
+                    doc_score = float(scores[0][i].item())
                     
-                    # Use explicit comparison with scalar value
-                    if similarity_score > 0.0:  # Only include relevant results
-                        results.append(self.documents[idx])
-                except (ValueError, IndexError, AttributeError, TypeError) as e:
-                    logger.warning(f"Error processing similarity score at index {idx}: {e}")
+                    # Check if valid
+                    if doc_idx < len(self.documents) and doc_score > 0.0:
+                        results.append((self.documents[doc_idx], doc_score))
+                        
+                except Exception as item_error:
+                    logger.warning(f"Error processing result {i}: {item_error}")
                     continue
             
             return results
             
         except Exception as e:
             logger.error(f"Error in similarity_search: {e}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             return []
     
     def add_documents(self, documents: List[Document]):
@@ -183,6 +216,98 @@ class SimpleVectorStore:
             logger.error(f"Error loading vector store: {e}")
             return cls()
 
+    @classmethod
+    def from_compatibility_json(cls, analysis_path=None):
+        """Build a SimpleVectorStore from compatibility_analysis.json."""
+        import json
+        from langchain.schema import Document
+        from datetime import datetime
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # Determine default path if not provided
+        if analysis_path is None:
+            # Use the same logic as VectorStore for default data dir
+            try:
+                REPO_ROOT = Path(__file__).resolve().parents[4]
+            except Exception:
+                REPO_ROOT = Path('.')
+            data_dir = REPO_ROOT / 'tlcaas' / 'tlcaas_root' / 'tlcaas-compliance-advisor' / 'data'
+            analysis_path = data_dir / 'processed' / 'compatibility_analysis.json'
+        else:
+            analysis_path = Path(analysis_path)
+        
+        documents = []
+        if not analysis_path.exists():
+            logger.error(f"compatibility_analysis.json not found at {analysis_path}")
+            return cls([])
+        try:
+            with open(analysis_path, 'r') as f:
+                analysis_data = json.load(f)
+            # Process servers
+            for server in analysis_data.get('servers', []):
+                server_info = server.get('server_info', {})
+                model = server_info.get('model', 'Unknown')
+                product_type = server_info.get('product_type', 'Unknown')
+                environment = server.get('environment', 'Unknown')
+                content = (
+                    f"Server Model: {model}\n"
+                    f"Product Type: {product_type}\n"
+                    f"Environment: {environment}\n"
+                    f"Server ID: {server.get('id', 'Unknown')}\n\n"
+                    f"Software Information:\n"
+                    f"{json.dumps(server.get('software_info', {}), indent=2)}\n\n"
+                    f"Compatibility Status: {server.get('compatibility_status', 'Unknown')}"
+                )
+                metadata = {
+                    'type': 'server_info',
+                    'model': model,
+                    'product_type': product_type,
+                    'environment': environment,
+                    'server_id': server.get('id', 'Unknown'),
+                    'timestamp': datetime.now().isoformat()
+                }
+                documents.append(Document(page_content=content, metadata=metadata))
+            # Process compatibility rules
+            for rule in analysis_data.get('compatibility_rules', []):
+                content = (
+                    f"Compatibility Rule:\n"
+                    f"Software: {rule.get('software', 'Unknown')}\n"
+                    f"Version: {rule.get('version', 'Unknown')}\n"
+                    f"OS Compatibility: {rule.get('os_compatibility', 'Unknown')}\n"
+                    f"Dependencies: {rule.get('dependencies', [])}\n"
+                    f"Conflicts: {rule.get('conflicts', [])}"
+                )
+                metadata = {
+                    'type': 'compatibility_rule',
+                    'software': rule.get('software', 'Unknown'),
+                    'version': rule.get('version', 'Unknown'),
+                    'timestamp': datetime.now().isoformat()
+                }
+                documents.append(Document(page_content=content, metadata=metadata))
+            # Process SOR history
+            for sor_record in analysis_data.get('sor_history', []):
+                env = sor_record.get("ENVIRONMENT", "Unknown")
+                attr = sor_record.get("ATTRIBUTENAME", "Unknown")
+                old_val = sor_record.get("OLDVALUE", "Unknown")
+                new_val = sor_record.get("NEWVALUE", "Unknown")
+                old_mapped = sor_record.get("OLD_MAPPED", "Unknown")
+                new_mapped = sor_record.get("NEW_MAPPED", "Unknown")
+                osi_user = sor_record.get("VERUMCREATEDBY", "Unknown")
+                date = sor_record.get("VERUMCREATEDDATE", "Unknown")
+                pattern_str = (
+                    f"Environment: {env}. "
+                    f"User: {osi_user}. "
+                    f"Date: {date}. "
+                    f"Change: {attr} from {old_val} ({old_mapped}) to {new_val} ({new_mapped})."
+                )
+                metadata = {k: sor_record.get(k, None) for k in sor_record.keys()}
+                documents.append(Document(page_content=pattern_str, metadata=metadata))
+        except Exception as e:
+            logger.error(f"Error loading or processing compatibility_analysis.json: {e}")
+            return cls([])
+        return cls(documents)
+
 class VectorStore:
     """Industry-standard vector store implementation using local components.
     
@@ -223,13 +348,8 @@ class VectorStore:
     def _initialize_components(self):
         """Initialize components with improved error handling."""
         try:
-            # Initialize text splitter with configurable parameters
-            self.text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=self.chunk_size,
-                chunk_overlap=self.chunk_overlap,
-                length_function=len,
-                separators=["\n\n", "\n", " ", ""]
-            )
+            # No text splitter needed for simple document processing
+            logger.info("Components initialized successfully")
                 
         except Exception as e:
             logger.error(f"Error initializing components: {e}")
@@ -335,6 +455,10 @@ class VectorStore:
             # Process compatibility rules
             for rule in analysis_data.get('compatibility_rules', []):
                 self._create_compatibility_rule_document(rule)
+            
+            # Process SOR history data (including OLD_MAPPED and NEW_MAPPED)
+            for sor_record in analysis_data.get('sor_history', []):
+                self._create_sor_history_document(sor_record)
                 
         except Exception as e:
             logger.error(f"Error processing analysis data: {e}")
@@ -390,6 +514,33 @@ class VectorStore:
         
         self.documents.append(Document(
             page_content=content,
+            metadata=metadata
+        ))
+    
+    def _create_sor_history_document(self, sor_record: Dict[str, Any]):
+        """Create a document for SOR history with OLD_MAPPED and NEW_MAPPED data as a pattern string."""
+        # Safely get fields, defaulting to 'Unknown' if missing
+        env = sor_record.get("ENVIRONMENT", "Unknown")
+        attr = sor_record.get("ATTRIBUTENAME", "Unknown")
+        old_val = sor_record.get("OLDVALUE", "Unknown")
+        new_val = sor_record.get("NEWVALUE", "Unknown")
+        old_mapped = sor_record.get("OLD_MAPPED", "Unknown")
+        new_mapped = sor_record.get("NEW_MAPPED", "Unknown")
+        osi_user = sor_record.get("VERUMCREATEDBY", "Unknown")
+        date = sor_record.get("VERUMCREATEDDATE", "Unknown")
+
+        # Build the pattern string
+        pattern_str = (
+            f"Environment: {env}. "
+            f"User: {osi_user}. "
+            f"Date: {date}. "
+            f"Change: {attr} from {old_val} ({old_mapped}) to {new_val} ({new_mapped})."
+        )
+
+        metadata = {k: sor_record.get(k, None) for k in sor_record.keys()}
+
+        self.documents.append(Document(
+            page_content=pattern_str,
             metadata=metadata
         ))
     
@@ -478,12 +629,12 @@ class VectorStore:
             
             # Format results
             results = []
-            for i, doc in enumerate(docs):
+            for i, (doc, score) in enumerate(docs):
                 result = {
                     'rank': i + 1,
                     'content': doc.page_content,
                     'metadata': doc.metadata,
-                    'score': None  # TF-IDF doesn't return scores in our implementation
+                    'score': score
                 }
                 results.append(result)
             
@@ -571,36 +722,21 @@ class VectorStore:
             return False
 
 def main():
-    """Test the vector store."""
+    """Test the vector store with pattern documents."""
     try:
-        # Initialize the store (completely free, document search only)
+        # Build the vector store from compatibility_analysis.json using VectorStore
         store = VectorStore()
+        print("\nVector store built. Sample pattern documents:")
+        for doc in store.documents[:3]:
+            print(doc.page_content)
         
-        # Test query
-        query = "What servers are running Apache HTTPD?"
-        results = store.query(query, top_k=3)
-        
-        print(f"Query: {query}")
-        print(f"Results: {json.dumps(results, indent=2)}")
-        
-        # Show system status
-        print("\n=== System Status ===")
-        print("✅ Document search: WORKING")
-        print("✅ Vector store: WORKING")
-        print("✅ TF-IDF indexing: WORKING")
-        print("✅ No external dependencies: WORKING")
-        
-        # Print stats
-        print(f"\nStats: {json.dumps(store.get_stats(), indent=2)}")
-        
-        print("\n=== Summary ===")
-        print("Your RAG system is working perfectly!")
-        print("- Document search: ✅ Working")
-        print("- Data loading: ✅ Working") 
-        print("- Vector indexing: ✅ Working")
-        print("- No external dependencies: ✅ Working")
-        print("- No LLM required: ✅ Working")
-        
+        # Test a sample query
+        sample_query = "Upgrade Oracle from 12.1.0.2.0 to 19.3.0.0.0 in Production environment"
+        print(f"\nSample query: {sample_query}")
+        results = store.vectorstore.similarity_search(sample_query, k=3)
+        print("\nTop 3 similar patterns:")
+        for doc, score in results:
+            print(f"Score: {score:.4f} | Pattern: {doc.page_content}")
     except Exception as e:
         logger.error(f"Error in main: {e}")
         print(f"Error: {e}")
