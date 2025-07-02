@@ -1,6 +1,6 @@
 {
     "metadata": {
-        "analysis_date": "2025-06-13 14:15:14",
+        "analysis_date": "2025-06-29 12:53:04",
         "total_servers": 50,
         "environments": [
             "DEV",
@@ -18,6 +18,7 @@
             "id": "1001",
             "name": "websrv01",
             "environment": "DEV",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "APACHE",
                 "product_class": "APPLICATION SERVER",
@@ -40,6 +41,7 @@
             "id": "1002",
             "name": "websrv02",
             "environment": "PROD",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "APACHE",
                 "product_class": "HTTP SERVER",
@@ -62,6 +64,7 @@
             "id": "1003",
             "name": "websrv03",
             "environment": "UAT",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "IBM",
                 "product_class": "APPLICATION SERVER",
@@ -84,6 +87,7 @@
             "id": "1004",
             "name": "websrv04",
             "environment": "DEV",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "NGINX",
                 "product_class": "HTTP SERVER",
@@ -106,6 +110,7 @@
             "id": "1005",
             "name": "websrv05",
             "environment": "PROD",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "APACHE",
                 "product_class": "APPLICATION SERVER",
@@ -128,6 +133,7 @@
             "id": "1006",
             "name": "websrv06",
             "environment": "DEV",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "APACHE",
                 "product_class": "HTTP SERVER",
@@ -150,6 +156,7 @@
             "id": "1007",
             "name": "websrv07",
             "environment": "UAT",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "IBM",
                 "product_class": "APPLICATION SERVER",
@@ -172,6 +179,7 @@
             "id": "1008",
             "name": "websrv08",
             "environment": "PROD",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "NGINX",
                 "product_class": "HTTP SERVER",
@@ -194,6 +202,7 @@
             "id": "1009",
             "name": "websrv09",
             "environment": "DEV",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "APACHE",
                 "product_class": "APPLICATION SERVER",
@@ -216,6 +225,7 @@
             "id": "1010",
             "name": "websrv10",
             "environment": "PROD",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "APACHE",
                 "product_class": "HTTP SERVER",
@@ -238,6 +248,7 @@
             "id": "1011",
             "name": "websrv11",
             "environment": "UAT",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "IBM",
                 "product_class": "APPLICATION SERVER",
@@ -260,6 +271,7 @@
             "id": "1012",
             "name": "websrv12",
             "environment": "DEV",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "NGINX",
                 "product_class": "HTTP SERVER",
@@ -282,6 +294,7 @@
             "id": "1013",
             "name": "websrv13",
             "environment": "PROD",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "APACHE",
                 "product_class": "APPLICATION SERVER",
@@ -304,6 +317,7 @@
             "id": "1014",
             "name": "websrv14",
             "environment": "DEV",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "APACHE",
                 "product_class": "HTTP SERVER",
@@ -326,6 +340,7 @@
             "id": "1015",
             "name": "websrv15",
             "environment": "UAT",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "IBM",
                 "product_class": "APPLICATION SERVER",
@@ -348,6 +363,7 @@
             "id": "1016",
             "name": "websrv16",
             "environment": "PROD",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "NGINX",
                 "product_class": "HTTP SERVER",
@@ -370,6 +386,7 @@
             "id": "1017",
             "name": "websrv17",
             "environment": "DEV",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "APACHE",
                 "product_class": "APPLICATION SERVER",
@@ -392,6 +409,7 @@
             "id": "1018",
             "name": "websrv18",
             "environment": "PROD",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "APACHE",
                 "product_class": "HTTP SERVER",
@@ -414,6 +432,7 @@
             "id": "1019",
             "name": "websrv19",
             "environment": "UAT",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "IBM",
                 "product_class": "APPLICATION SERVER",
@@ -436,6 +455,7 @@
             "id": "1020",
             "name": "websrv20",
             "environment": "DEV",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "NGINX",
                 "product_class": "HTTP SERVER",
@@ -458,6 +478,7 @@
             "id": "1021",
             "name": "websrv21",
             "environment": "PROD",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "APACHE",
                 "product_class": "APPLICATION SERVER",
@@ -480,6 +501,7 @@
             "id": "1022",
             "name": "websrv22",
             "environment": "DEV",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "APACHE",
                 "product_class": "HTTP SERVER",
@@ -502,6 +524,7 @@
             "id": "1023",
             "name": "websrv23",
             "environment": "UAT",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "IBM",
                 "product_class": "APPLICATION SERVER",
@@ -524,6 +547,7 @@
             "id": "1024",
             "name": "websrv24",
             "environment": "PROD",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "NGINX",
                 "product_class": "HTTP SERVER",
@@ -546,6 +570,7 @@
             "id": "1025",
             "name": "websrv25",
             "environment": "DEV",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "APACHE",
                 "product_class": "APPLICATION SERVER",
@@ -568,6 +593,7 @@
             "id": "1026",
             "name": "websrv26",
             "environment": "PROD",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "APACHE",
                 "product_class": "HTTP SERVER",
@@ -590,6 +616,7 @@
             "id": "1027",
             "name": "websrv27",
             "environment": "UAT",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "IBM",
                 "product_class": "APPLICATION SERVER",
@@ -612,6 +639,7 @@
             "id": "1028",
             "name": "websrv28",
             "environment": "DEV",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "NGINX",
                 "product_class": "HTTP SERVER",
@@ -634,6 +662,7 @@
             "id": "1029",
             "name": "websrv29",
             "environment": "PROD",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "APACHE",
                 "product_class": "APPLICATION SERVER",
@@ -656,6 +685,7 @@
             "id": "1030",
             "name": "websrv30",
             "environment": "DEV",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "APACHE",
                 "product_class": "HTTP SERVER",
@@ -678,6 +708,7 @@
             "id": "1031",
             "name": "websrv31",
             "environment": "UAT",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "IBM",
                 "product_class": "APPLICATION SERVER",
@@ -700,6 +731,7 @@
             "id": "1032",
             "name": "websrv32",
             "environment": "PROD",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "NGINX",
                 "product_class": "HTTP SERVER",
@@ -722,6 +754,7 @@
             "id": "1033",
             "name": "websrv33",
             "environment": "DEV",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "APACHE",
                 "product_class": "APPLICATION SERVER",
@@ -744,6 +777,7 @@
             "id": "1034",
             "name": "websrv34",
             "environment": "PROD",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "APACHE",
                 "product_class": "HTTP SERVER",
@@ -766,6 +800,7 @@
             "id": "1035",
             "name": "websrv35",
             "environment": "UAT",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "IBM",
                 "product_class": "APPLICATION SERVER",
@@ -788,6 +823,7 @@
             "id": "1036",
             "name": "websrv36",
             "environment": "DEV",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "NGINX",
                 "product_class": "HTTP SERVER",
@@ -810,6 +846,7 @@
             "id": "1037",
             "name": "websrv37",
             "environment": "PROD",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "APACHE",
                 "product_class": "APPLICATION SERVER",
@@ -832,6 +869,7 @@
             "id": "1038",
             "name": "websrv38",
             "environment": "DEV",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "APACHE",
                 "product_class": "HTTP SERVER",
@@ -854,6 +892,7 @@
             "id": "1039",
             "name": "websrv39",
             "environment": "UAT",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "IBM",
                 "product_class": "APPLICATION SERVER",
@@ -876,6 +915,7 @@
             "id": "1040",
             "name": "websrv40",
             "environment": "PROD",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "NGINX",
                 "product_class": "HTTP SERVER",
@@ -898,6 +938,7 @@
             "id": "1041",
             "name": "websrv41",
             "environment": "DEV",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "APACHE",
                 "product_class": "APPLICATION SERVER",
@@ -920,6 +961,7 @@
             "id": "1042",
             "name": "websrv42",
             "environment": "PROD",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "APACHE",
                 "product_class": "HTTP SERVER",
@@ -942,6 +984,7 @@
             "id": "1043",
             "name": "websrv43",
             "environment": "UAT",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "IBM",
                 "product_class": "APPLICATION SERVER",
@@ -964,6 +1007,7 @@
             "id": "1044",
             "name": "websrv44",
             "environment": "DEV",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "NGINX",
                 "product_class": "HTTP SERVER",
@@ -986,6 +1030,7 @@
             "id": "1045",
             "name": "websrv45",
             "environment": "PROD",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "APACHE",
                 "product_class": "APPLICATION SERVER",
@@ -1008,6 +1053,7 @@
             "id": "1046",
             "name": "websrv46",
             "environment": "DEV",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "APACHE",
                 "product_class": "HTTP SERVER",
@@ -1030,6 +1076,7 @@
             "id": "1047",
             "name": "websrv47",
             "environment": "UAT",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "IBM",
                 "product_class": "APPLICATION SERVER",
@@ -1052,6 +1099,7 @@
             "id": "1048",
             "name": "websrv48",
             "environment": "PROD",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "NGINX",
                 "product_class": "HTTP SERVER",
@@ -1074,6 +1122,7 @@
             "id": "1049",
             "name": "websrv49",
             "environment": "DEV",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "APACHE",
                 "product_class": "APPLICATION SERVER",
@@ -1096,6 +1145,7 @@
             "id": "1050",
             "name": "websrv50",
             "environment": "PROD",
+            "objectname": null,
             "server_info": {
                 "manufacturer": "APACHE",
                 "product_class": "HTTP SERVER",
@@ -1246,5 +1296,166 @@
                 }
             }
         }
-    }
+    },
+    "sor_history": [
+        {
+            "VERUMIDENTIFIER": "72549450OSI207984762_207984762_catalogID",
+            "REQUESTTRACKERID": "72549450OSI207984762",
+            "OBJECTID": 207984762,
+            "OBJECTNAME": "OSI",
+            "RELATEDOBJECTID": 207984762,
+            "RELATEDOBJECTNAME": "",
+            "ATTRIBUTENAME": "CATALOGID",
+            "OLDVALUE": "1001",
+            "NEWVALUE": "1002",
+            "VERUMSOR": "ICPW",
+            "VERUMCREATEDBY": "K022704",
+            "VERUMCREATEDDATE": "2025-01-17 08:06:41.052000+00:00",
+            "VERUMLASTMODIFIEDBY": "",
+            "VERUMMODIFIEDDATE": "",
+            "VERUMSTATUS": "",
+            "VERUMRETIREDDATED": "",
+            "ENTITLEMENTUSED": "BUILD_PROVISIONING_OSI",
+            "CHANGE_TYPE": "CATALOGID",
+            "IS_VERSION_CHANGE": true,
+            "OLD_VERSION": "9.0",
+            "NEW_VERSION": "2.4",
+            "OLD_CATALOGID": 1001.0,
+            "NEW_CATALOGID": 1002.0,
+            "OLD_SWNAME": "APACHE TOMCAT 9.0",
+            "NEW_SWNAME": "APACHE HTTPD 2.4"
+        },
+        {
+            "VERUMIDENTIFIER": "72549528WEBSERVER208292258_208292258_model",
+            "REQUESTTRACKERID": "72549528WEBSERVER208292258",
+            "OBJECTID": 208292258,
+            "OBJECTNAME": "WEBSERVER",
+            "RELATEDOBJECTID": 208292258,
+            "RELATEDOBJECTNAME": "",
+            "ATTRIBUTENAME": "MODEL",
+            "OLDVALUE": "APACHE TOMCAT 9.0.95",
+            "NEWVALUE": "APACHE TOMCAT 9.0.98",
+            "VERUMSOR": "BOOMERANG",
+            "VERUMCREATEDBY": "I765403",
+            "VERUMCREATEDDATE": "2025-01-17 08:14:04.635000+00:00",
+            "VERUMLASTMODIFIEDBY": "",
+            "VERUMMODIFIEDDATE": "",
+            "VERUMSTATUS": "",
+            "VERUMRETIREDDATED": "",
+            "ENTITLEMENTUSED": "BUILD_PROVISIONING_WEB",
+            "CHANGE_TYPE": "MODEL",
+            "IS_VERSION_CHANGE": true,
+            "OLD_VERSION": "9.0.95",
+            "NEW_VERSION": "9.0.98",
+            "OLD_CATALOGID": "",
+            "NEW_CATALOGID": "",
+            "OLD_SWNAME": "",
+            "NEW_SWNAME": ""
+        },
+        {
+            "VERUMIDENTIFIER": "72549450OSI207984762_207984762_catalogID",
+            "REQUESTTRACKERID": "72549450OSI207984762",
+            "OBJECTID": 207984762,
+            "OBJECTNAME": "OSI",
+            "RELATEDOBJECTID": 207984762,
+            "RELATEDOBJECTNAME": "",
+            "ATTRIBUTENAME": "CATALOGID",
+            "OLDVALUE": "58330",
+            "NEWVALUE": "60000",
+            "VERUMSOR": "ICPW",
+            "VERUMCREATEDBY": "K022704",
+            "VERUMCREATEDDATE": "2025-01-18 09:10:00+00:00",
+            "VERUMLASTMODIFIEDBY": "",
+            "VERUMMODIFIEDDATE": "",
+            "VERUMSTATUS": "",
+            "VERUMRETIREDDATED": "",
+            "ENTITLEMENTUSED": "BUILD_PROVISIONING_OSI",
+            "CHANGE_TYPE": "CATALOGID",
+            "IS_VERSION_CHANGE": true,
+            "OLD_VERSION": "",
+            "NEW_VERSION": "",
+            "OLD_CATALOGID": 58330.0,
+            "NEW_CATALOGID": 60000.0,
+            "OLD_SWNAME": "",
+            "NEW_SWNAME": ""
+        }
+    ],
+    "server_software_mapping": [
+        {
+            "ASSETNAME": "websrv01",
+            "CATALOGID": 1001,
+            "ENVIRONMENT": "DEV",
+            "INSTALLPATH": "/opt/tomcat",
+            "INSTANCENAME": "Tomcat01",
+            "INVNO": 2001,
+            "MANUFACTURER": "APACHE",
+            "MODEL": "APACHE TOMCAT 9.0",
+            "PRODUCTCLASS": "APPLICATION SERVER",
+            "PRODUCTTYPE": "WEB INSTANCE",
+            "STATUS": "Installed",
+            "SUBSTATUS": "Active",
+            "OSIINVNO": 2001,
+            "VERUMIDENTIFIER": 9001,
+            "LOAD_DT": "2024-06-01",
+            " OLD_MAPPED": " Apache HTTP 2.4.1",
+            " NEW_MAPPED": " Apache HTTP 2.4.2"
+        },
+        {
+            "ASSETNAME": "websrv02",
+            "CATALOGID": 1002,
+            "ENVIRONMENT": "PROD",
+            "INSTALLPATH": "/opt/httpd",
+            "INSTANCENAME": "Httpd01",
+            "INVNO": 2002,
+            "MANUFACTURER": "APACHE",
+            "MODEL": "APACHE HTTPD 2.4",
+            "PRODUCTCLASS": "HTTP SERVER",
+            "PRODUCTTYPE": "WEB INSTANCE",
+            "STATUS": "Installed",
+            "SUBSTATUS": "Active",
+            "OSIINVNO": 3002,
+            "VERUMIDENTIFIER": 9002,
+            "LOAD_DT": "2024-06-01",
+            " OLD_MAPPED": " Tomcat 3.4.1",
+            " NEW_MAPPED": " Tomcat 3.5.1"
+        },
+        {
+            "ASSETNAME": "websrv03",
+            "CATALOGID": 1003,
+            "ENVIRONMENT": "UAT",
+            "INSTALLPATH": "/opt/websphere",
+            "INSTANCENAME": "WebSphere01",
+            "INVNO": 2003,
+            "MANUFACTURER": "IBM",
+            "MODEL": "WEBSPHERE 8.5",
+            "PRODUCTCLASS": "APPLICATION SERVER",
+            "PRODUCTTYPE": "WEB INSTANCE",
+            "STATUS": "Installed",
+            "SUBSTATUS": "Active",
+            "OSIINVNO": 3003,
+            "VERUMIDENTIFIER": 9003,
+            "LOAD_DT": "2024-06-01",
+            " OLD_MAPPED": " IBM 3.4",
+            " NEW_MAPPED": " IBM 3.5"
+        },
+        {
+            "ASSETNAME": "websrv04",
+            "CATALOGID": 1004,
+            "ENVIRONMENT": "DEV",
+            "INSTALLPATH": "/opt/nginx",
+            "INSTANCENAME": "Nginx01",
+            "INVNO": 2004,
+            "MANUFACTURER": "NGINX",
+            "MODEL": "NGINX 1.18",
+            "PRODUCTCLASS": "HTTP SERVER",
+            "PRODUCTTYPE": "WEB INSTANCE",
+            "STATUS": "Installed",
+            "SUBSTATUS": "Active",
+            "OSIINVNO": 3004,
+            "VERUMIDENTIFIER": 9004,
+            "LOAD_DT": "2024-06-01",
+            " OLD_MAPPED": "",
+            " NEW_MAPPED": ""
+        }
+    ]
 }

@@ -4,7 +4,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.rag.vector_store import VectorStore
 from src.evaluation.feedback_system import FeedbackLogger
-from src.data_processing.analyze_compatibility import CompatibilityAnalyzer
+from src.data_processing.analyze_compatibility import CompatibilityAnalyzer, get_database_options, get_osi_options
 import uuid
 import plotly.graph_objects as go
 import plotly.express as px
@@ -41,7 +41,6 @@ class ChangeRequest:
 vector_store = VectorStore()
 # For data analysis (keeping for potential future use)
 analyzer = CompatibilityAnalyzer()
-analyzer.load_data()
 
 feedback_logger = FeedbackLogger()
 
@@ -295,6 +294,35 @@ def build_interface():
                 <div class='main-title'>Infrastructure Search Assistant</div>
                 <div class='subtitle'>Ask questions about your servers, software, and infrastructure</div>
                 """)
+                
+                # Database dropdown
+                db_options = get_database_options()
+                
+                with gr.Row():
+                    db_dropdown = gr.Dropdown(
+                        choices=db_options,
+                        label="Select Database Version (Optional)",
+                        value=None,
+                        allow_custom_value=True,
+                        info="Choose a specific database version to focus your search",
+                        scale=2
+                    )
+                    refresh_db_btn = gr.Button("🔄 Refresh", size="sm", scale=1)
+                
+                # OSI dropdown
+                osi_options = get_osi_options()
+                
+                with gr.Row(visible=True) as osi_row:
+                    osi_dropdown = gr.Dropdown(
+                        choices=osi_options,
+                        label="Select OSI Version",
+                        value=None,
+                        allow_custom_value=True,
+                        info="Choose your specific OSI version",
+                        scale=2
+                    )
+                    refresh_osi_btn = gr.Button("🔄 Refresh", size="sm", scale=1)
+                
                 request_box = gr.Textbox(
                     label="Your Question",
                     placeholder="E.g. 'What servers are running Apache HTTPD?' or 'What OS does Apache run best on?'",
@@ -360,13 +388,19 @@ def build_interface():
             }
 
         def confirm_os(os_name):
-            """Confirms the OS and updates the UI."""
+            """Confirms the OS/OSI and updates the UI."""
             return {
                 user_os: os_name,
                 os_question_md: gr.update(visible=False),
                 os_confirm_buttons: gr.update(visible=False),
                 os_select_dd: gr.update(visible=False),
                 os_confirmed_md: gr.update(value=f"✅ OS set to <b>{os_name}</b>", visible=True)
+            }
+
+        def confirm_osi(osi_name):
+            """Confirms the OSI selection and updates the UI."""
+            return {
+                os_confirmed_md: gr.update(value=f"✅ OSI version set to <b>{osi_name}</b>", visible=True)
             }
 
         def show_os_select():
@@ -377,25 +411,55 @@ def build_interface():
                 os_select_dd: gr.update(visible=True)
             }
 
-        def on_analyze(request_text, current_os):
+        def refresh_db_dropdown():
+            """Refresh the database dropdown with current data."""
+            db_options = get_database_options()
+            return gr.update(choices=db_options, value=None)
+
+        def refresh_osi_dropdown():
+            """Refresh the OSI dropdown with current data."""
+            osi_options = get_osi_options()
+            return gr.update(choices=osi_options, value=None)
+
+        def on_analyze(request_text, current_os, selected_db, selected_osi):
             """Simple search function using VectorStore."""
             if not request_text.strip():
-                return {"results_md": gr.update(value="<div class='results-container section-empty'>⚠️ Please enter a question about your infrastructure.</div>", visible=True)}
+                return {
+                    "results_md": gr.update(value="<div class='results-container section-empty'>⚠️ Please enter a question about your infrastructure.</div>", visible=True),
+                    "feedback_container": gr.update(visible=False),
+                    "feedback_thanks_md": gr.update(visible=False),
+                    "last_query": request_text,
+                    "last_results": ""
+                }
             
             try:
+                # Enhance query with database and OSI selection if provided
+                enhanced_query = request_text
+                if selected_db and selected_db != "No database versions found":
+                    enhanced_query = f"{enhanced_query} [Database: {selected_db}]"
+                if selected_osi and selected_osi != "No OSI versions found":
+                    enhanced_query = f"{enhanced_query} [OSI: {selected_osi}]"
+                
                 # Use the query interface
-                results = query_interface.query(request_text, top_k=5)
+                results = query_interface.query(enhanced_query, top_k=5)
                 formatted_results = query_interface.format_results(results)
                 
                 return {
                     "results_md": gr.update(value=formatted_results, visible=True),
                     "feedback_container": gr.update(visible=True),
-                    "last_query": request_text,
+                    "feedback_thanks_md": gr.update(visible=False),
+                    "last_query": enhanced_query,
                     "last_results": str(results)
                 }
             except Exception as e:
                 error_msg = f"<div class='results-container'><div class='section-empty'>❌ Error: {str(e)}</div></div>"
-                return {"results_md": gr.update(value=error_msg, visible=True)}
+                return {
+                    "results_md": gr.update(value=error_msg, visible=True),
+                    "feedback_container": gr.update(visible=False),
+                    "feedback_thanks_md": gr.update(visible=False),
+                    "last_query": request_text,
+                    "last_results": ""
+                }
 
         def log_feedback(score, query, results, os, sid):
             """Logs feedback and shows a thank you message."""
@@ -422,13 +486,26 @@ def build_interface():
             outputs=[detected_os, os_question_md, os_confirm_buttons, os_select_dd]
         )
         os_yes_btn.click(confirm_os, inputs=detected_os, outputs=[user_os, os_question_md, os_confirm_buttons, os_select_dd, os_confirmed_md])
-        os_no_btn.click(show_os_select, outputs=[os_question_md, os_confirm_buttons, os_select_dd])
+        os_no_btn.click(show_os_select, outputs=[os_question_md, os_confirm_buttons, osi_row])
         os_select_dd.change(confirm_os, inputs=os_select_dd, outputs=[user_os, os_question_md, os_confirm_buttons, os_select_dd, os_confirmed_md])
+        osi_dropdown.change(confirm_osi, inputs=osi_dropdown, outputs=[os_confirmed_md])
 
         analyze_btn.click(
             on_analyze, 
-            inputs=[request_box, user_os], 
+            inputs=[request_box, user_os, db_dropdown, osi_dropdown], 
             outputs=[results_md, feedback_container, feedback_thanks_md, last_query, last_results]
+        )
+
+        # Refresh database dropdown
+        refresh_db_btn.click(
+            refresh_db_dropdown,
+            outputs=[db_dropdown]
+        )
+
+        # Refresh OSI dropdown
+        refresh_osi_btn.click(
+            refresh_osi_dropdown,
+            outputs=[osi_dropdown]
         )
 
         # Update analytics when page loads and after feedback

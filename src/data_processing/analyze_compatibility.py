@@ -169,32 +169,27 @@ class CompatibilityAnalyzer:
         if 'VERUMCREATEDBY' not in self.sor_hist_data.columns or 'VERUMCREATEDDATE' not in self.sor_hist_data.columns:
             logger.warning("VERUMCREATEDBY or VERUMCREATEDDATE column not found in SOR history")
             return
-        
-        # Convert date column to datetime
-        self.sor_hist_data['VERUMCREATEDDATE'] = pd.to_datetime(self.sor_hist_data['VERUMCREATEDDATE'], errors='coerce')
-        
+        # Parse dates with explicit format and store in PARSED_DATE
+        self.sor_hist_data['PARSED_DATE'] = pd.to_datetime(
+            self.sor_hist_data['VERUMCREATEDDATE'],
+            format="%d-%b-%y %I.%M.%S.%f %p UTC",
+            errors='coerce'
+        )
         bundle_patterns = defaultdict(int)
         user_bundles = defaultdict(list)
-        
         for user, group in self.sor_hist_data.groupby('VERUMCREATEDBY'):
-            group = group.sort_values('VERUMCREATEDDATE')
-            times = pd.to_datetime(
-                group['VERUMCREATEDDATE'],
-                format="%d-%b-%y %I.%M.%S.%f %p UTC",
-                errors='coerce'
-            ).tolist()
+            group = group.sort_values('PARSED_DATE')
+            times = group['PARSED_DATE'].tolist()
             actions = group.to_dict('records')
             n = len(actions)
             i = 0
             while i < n:
                 current_time = times[i]
-                # Find all actions within the time window
                 bundle = [actions[i]]
                 j = i + 1
                 while j < n and pd.notna(times[j]) and pd.notna(current_time) and (times[j] - current_time).days <= time_window_days:
                     bundle.append(actions[j])
                     j += 1
-                # Represent bundle as a tuple of (attribute, old, new) for each action
                 bundle_signature = tuple(
                     (a.get('ATTRIBUTENAME'), a.get('OLD_MAPPED'), a.get('NEW_MAPPED')) for a in bundle
                 )
@@ -307,62 +302,89 @@ class CompatibilityAnalyzer:
             logger.info(f"Total successful combinations in {env}: {len(env_data)}")
 
     def build_upgrade_pattern_map(self, time_window_days: int = 1):
-        """Build a map of upgrade patterns: (old_version, new_version, environment) -> stats, affected models, co-changes, recommendations."""
-        logger.info(f"\nBuilding upgrade pattern map with a window of {time_window_days} day(s)...")
+        """Build a map of upgrade patterns: (old_version, new_version) -> stats, affected models, co-changes, recommendations. Ultra-fast version."""
+        logger.info(f"\nBuilding ULTRA-FAST upgrade pattern map (no ENVIRONMENT) with a window of {time_window_days} day(s)...")
         if 'VERUMCREATEDDATE' not in self.sor_hist_data.columns:
             logger.warning("VERUMCREATEDDATE column not found in SOR history")
             return {}
+        
         # Parse dates with explicit format
         self.sor_hist_data['PARSED_DATE'] = pd.to_datetime(
             self.sor_hist_data['VERUMCREATEDDATE'],
             format="%d-%b-%y %I.%M.%S.%f %p UTC",
             errors='coerce'
         )
+        
+        # Filter out rows with invalid dates
+        valid_dates = self.sor_hist_data['PARSED_DATE'].notna()
+        df = self.sor_hist_data[valid_dates].sort_values('PARSED_DATE').reset_index(drop=True)
+        
+        # Check if required columns exist
+        if 'OLD_VERSION' not in df.columns or 'NEW_VERSION' not in df.columns:
+            logger.error(f"Required columns not found. Available columns: {list(df.columns)}")
+            return {}
+        
+        # Filter out invalid versions
+        valid_versions = (
+            df['OLD_VERSION'].notna() & 
+            df['NEW_VERSION'].notna() & 
+            (df['OLD_VERSION'] != 'Unknown') & 
+            (df['NEW_VERSION'] != 'Unknown') &
+            (df['OLD_VERSION'] != '') & 
+            (df['NEW_VERSION'] != '')
+        )
+        df = df[valid_versions].copy()
+        
+        logger.info(f"Processing {len(df)} valid records")
+        
+        # Group by (old_ver, new_ver) - using OLD_VERSION and NEW_VERSION columns
+        version_groups = df.groupby(['OLD_VERSION', 'NEW_VERSION'])
+        logger.info(f"Found {len(version_groups)} unique version combinations")
+        
         pattern_map = {}
-        # Group by environment for context
-        for env, env_group in self.sor_hist_data.groupby('ENVIRONMENT'):
-            # Sort by date
-            env_group = env_group.sort_values('PARSED_DATE')
-            for idx, row in env_group.iterrows():
-                old_ver = row.get('OLD_MAPPED', 'Unknown')
-                new_ver = row.get('NEW_MAPPED', 'Unknown')
-                model = row.get('MODEL_x', 'Unknown') if 'MODEL_x' in row else row.get('MODEL', 'Unknown')
-                parsed_date = row['PARSED_DATE']
-                if pd.isna(parsed_date) or old_ver == 'Unknown' or new_ver == 'Unknown':
-                    continue
-                key = (old_ver, new_ver, env)
-                if key not in pattern_map:
-                    pattern_map[key] = {
-                        'count': 0,
-                        'affected_models': set(),
-                        'co_changes': [],
-                        'dates': [],
-                        'recommendations': set()
-                    }
-                pattern_map[key]['count'] += 1
-                pattern_map[key]['affected_models'].add(model)
-                pattern_map[key]['dates'].append(parsed_date)
-                # Find co-changes within the time window
-                window_start = parsed_date - pd.Timedelta(days=time_window_days)
-                window_end = parsed_date + pd.Timedelta(days=time_window_days)
-                co_changes = env_group[
-                    (env_group['PARSED_DATE'] >= window_start) &
-                    (env_group['PARSED_DATE'] <= window_end) &
-                    (env_group.index != idx)
-                ]
-                for _, co_row in co_changes.iterrows():
+        window = pd.Timedelta(days=time_window_days)
+        
+        # Process each version group
+        for key, group in version_groups:
+            old_ver, new_ver = key
+            
+            dates = group['PARSED_DATE'].tolist()
+            
+            # FAST co-changes: Pre-compute all possible co-changes for this group
+            co_changes = []
+            recommendations = set()
+            
+            # For each record in this group, find co-changes efficiently
+            for _, row in group.iterrows():
+                # Use a more efficient window search
+                window_start = row['PARSED_DATE'] - window
+                window_end = row['PARSED_DATE'] + window
+                
+                # Use boolean indexing on the full DataFrame (this is the fastest approach)
+                window_mask = (
+                    (df['PARSED_DATE'] >= window_start) & 
+                    (df['PARSED_DATE'] <= window_end) & 
+                    (df.index != row.name)
+                )
+                
+                # Get co-changes from the window
+                window_records = df[window_mask]
+                for _, co_row in window_records.iterrows():
                     co_attr = co_row.get('ATTRIBUTENAME', 'Unknown')
-                    co_old = co_row.get('OLD_MAPPED', 'Unknown')
-                    co_new = co_row.get('NEW_MAPPED', 'Unknown')
-                    pattern_map[key]['co_changes'].append((co_attr, co_old, co_new))
-                    # Add to recommendations if it's a different upgrade
+                    co_old = co_row.get('OLD_VERSION', 'Unknown')
+                    co_new = co_row.get('NEW_VERSION', 'Unknown')
+                    co_changes.append((co_attr, co_old, co_new))
                     if co_old != old_ver or co_new != new_ver:
-                        pattern_map[key]['recommendations'].add(f"Also upgrade {co_attr} from {co_old} to {co_new}")
-        # Convert sets to lists for JSON serialization
-        for key in pattern_map:
-            pattern_map[key]['affected_models'] = list(pattern_map[key]['affected_models'])
-            pattern_map[key]['recommendations'] = list(pattern_map[key]['recommendations'])
-        logger.info(f"Built {len(pattern_map)} upgrade patterns.")
+                        recommendations.add(f"Also upgrade {co_attr} from {co_old} to {co_new}")
+            
+            pattern_map[(old_ver, new_ver)] = {
+                'count': len(group),
+                'co_changes': co_changes,
+                'dates': [str(date) for date in dates],  # Convert timestamps to strings
+                'recommendations': list(recommendations)
+            }
+        
+        logger.info(f"Built {len(pattern_map)} ULTRA-FAST upgrade patterns (no ENVIRONMENT in key).")
         return pattern_map
 
     def save_analysis(self, filepath='data/processed/compatibility_analysis.json'):
@@ -447,11 +469,18 @@ class CompatibilityAnalyzer:
             "sor_history": sor_history,
             "upgrade_patterns": self.build_upgrade_pattern_map()
         }
+        
+        class TimestampEncoder(json.JSONEncoder):
+            def default(self, obj):
+                if isinstance(obj, pd.Timestamp):
+                    return obj.isoformat()
+                return super().default(obj)
+        
         print("Analysis Results: ")
-        print(json.dumps(analysis_results, indent=4)[:500])
+        print(json.dumps(analysis_results, indent=4, cls=TimestampEncoder)[:500])
         
         with open(filepath, 'w') as f:
-            json.dump(analysis_results, f, indent=4)
+            json.dump(analysis_results, f, indent=4, cls=TimestampEncoder)
         logger.info(f"Analysis results saved to {filepath}")
 
         with open(filepath,'r') as f:
@@ -657,6 +686,49 @@ def main():
     )
     print("\nExample recommendations:")
     print(json.dumps(example_recommendations, indent=2))
+    
+    # Debug: Check temporal bundles
+    print(f"\nTemporal bundles analysis:")
+    print(f"  Has user_bundles: {hasattr(analyzer, 'user_bundles')}")
+    print(f"  Has temporal_bundles: {hasattr(analyzer, 'temporal_bundles')}")
+    if hasattr(analyzer, 'temporal_bundles'):
+        print(f"  Temporal bundles count: {len(analyzer.temporal_bundles)}")
+    if hasattr(analyzer, 'user_bundles'):
+        print(f"  User bundles count: {len(analyzer.user_bundles)}")
+    
+    # Example: Show upgrade pattern map usage
+    print("\n=== Upgrade Pattern Example ===")
+    
+    # Debug: Check data before building patterns
+    print(f"SOR history records: {len(analyzer.sor_hist_data)}")
+    print(f"Columns in SOR history: {list(analyzer.sor_hist_data.columns)}")
+    
+    # Check if OLD_VERSION and NEW_VERSION columns exist and have data
+    if 'OLD_VERSION' in analyzer.sor_hist_data.columns:
+        valid_old = analyzer.sor_hist_data['OLD_VERSION'].notna().sum()
+        print(f"Valid OLD_VERSION records: {valid_old}")
+    if 'NEW_VERSION' in analyzer.sor_hist_data.columns:
+        valid_new = analyzer.sor_hist_data['NEW_VERSION'].notna().sum()
+        print(f"Valid NEW_VERSION records: {valid_new}")
+    
+    # Show some sample data
+    print("\nSample SOR history records:")
+    for i, row in analyzer.sor_hist_data.head(3).iterrows():
+        print(f"  Row {i}: OLD_VERSION='{row.get('OLD_VERSION', 'MISSING')}', NEW_VERSION='{row.get('NEW_VERSION', 'MISSING')}'")
+    
+    upgrade_patterns = analyzer.build_upgrade_pattern_map()
+    print(f"\nUpgrade patterns found: {len(upgrade_patterns)}")
+    
+    if upgrade_patterns:
+        # Show first pattern as example
+        first_key = list(upgrade_patterns.keys())[0]
+        old_ver, new_ver = first_key
+        pattern = upgrade_patterns[first_key]
+        print(f"Pattern: {old_ver} → {new_ver}")
+        print(f"Frequency: {pattern['count']} times")
+        print(f"Recommendations: {len(pattern['recommendations'])} available")
+    else:
+        print("No upgrade patterns found.")
     
     logger.info("Compatibility analysis completed successfully!")
 
