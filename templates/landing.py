@@ -2,102 +2,61 @@ import gradio as gr
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from src.rag.vector_store import VectorStore
+from src.rag.determine_recs import CompatibilityAnalyzer, CompatibilityResult, ChangeRequest
 from src.evaluation.feedback_system import FeedbackLogger
-from src.data_processing.analyze_compatibility import CompatibilityAnalyzer, get_database_options, get_osi_options
 import uuid
 import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
 from datetime import datetime, timedelta
 import json
-import re
-from dataclasses import dataclass
-from typing import List, Dict, Any, Optional
 
-# Simple compatibility result classes
-@dataclass
-class CompatibilityResult:
-    """Result of compatibility analysis."""
-    is_compatible: bool
-    confidence: float
-    affected_servers: List[Dict[str, Any]]
-    conflicts: List[str]
-    recommendations: List[str]
-    warnings: List[str]
-    alternative_versions: List[str]
-
-@dataclass
-class ChangeRequest:
-    """Represents a user's software change request."""
-    software_name: str
-    version: Optional[str] = None
-    action: str = "upgrade"
-    environment: Optional[str] = None
-    target_servers: Optional[List[str]] = None
-    raw_text: str = ""
-
-# For RAG/LLM compatibility logic
-vector_store = VectorStore()
-# For data analysis (keeping for potential future use)
 analyzer = CompatibilityAnalyzer()
-
 feedback_logger = FeedbackLogger()
 
-# Simple query interface using VectorStore
-class SimpleQueryInterface:
-    def __init__(self, vector_store: VectorStore):
-        self.vector_store = vector_store
-    
-    def query(self, query_text: str, top_k: int = 5) -> Dict[str, Any]:
-        """Simple query using VectorStore."""
-        try:
-            results = self.vector_store.query(query_text, top_k=top_k)
-            return results
-        except Exception as e:
-            return {"error": str(e), "query": query_text, "results": [], "total_results": 0}
-    
-    def format_results(self, results: Dict[str, Any]) -> str:
-        """Format results for display."""
-        if "error" in results:
-            return f"<div class='results-container'><div class='section-empty'>❌ Error: {results['error']}</div></div>"
-        
-        if not results.get('results'):
-            return "<div class='results-container'><div class='section-empty'>No results found. Try a different query.</div></div>"
-        
-        output = ["<div class='results-container'>"]
-        output.append(f"<h3>🔍 Search Results for: <em>'{results['query']}'</em></h3>")
-        output.append(f"<p><strong>Found {results['total_results']} relevant documents:</strong></p>")
-        
-        for i, result in enumerate(results['results'], 1):
-            content = result.get('content', 'No content')
-            metadata = result.get('metadata', {})
-            
-            # Format the content nicely
-            content_lines = content.split('\n')
-            formatted_content = '<br>'.join(content_lines)
-            
-            # Get metadata info
-            doc_type = metadata.get('type', 'unknown')
-            timestamp = metadata.get('timestamp', 'Unknown')
-            
-            output.append(f"""
-            <div style='border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; margin: 1rem 0; background: #f8fafc;'>
-                <h4 style='margin: 0 0 0.5rem 0; color: #1e293b;'>Result {i}</h4>
-                <div style='font-size: 0.9em; color: #64748b; margin-bottom: 0.5rem;'>
-                    Type: {doc_type} | Timestamp: {timestamp}
-                </div>
-                <div style='background: white; padding: 1rem; border-radius: 4px; border-left: 4px solid #3b82f6;'>
-                    {formatted_content}
-                </div>
-            </div>
-            """)
-        
-        output.append("</div>")
-        return ''.join(output)
+# --- Formatting Functions ---
+def format_status(result: CompatibilityResult) -> str:
+    status = "COMPATIBLE" if result.is_compatible else "INCOMPATIBLE"
+    color = "#22c55e" if result.is_compatible else "#ef4444"
+    return f"<span style='display:inline-block;padding:0.4em 1em;border-radius:1em;background:{color};color:white;font-weight:bold;font-size:1.1em;'>{status}</span> <span style='color:#64748b;font-size:1em;'>(Confidence: {result.confidence:.1%})</span>"
 
-# Initialize query interface
-query_interface = SimpleQueryInterface(vector_store)
+def format_affected_models(result: CompatibilityResult) -> str:
+    if not result.affected_servers:
+        return "<div class='section-empty'>No specific models identified</div>"
+    model_env_map = {}
+    for server in result.affected_servers:
+        model = server.get('server_info', {}).get('model', 'Unknown')
+        product_type = server.get('server_info', {}).get('product_type', 'Unknown')
+        env = server.get('environment', 'Unknown')
+        if str(model) in ['Unknown', 'Closed'] or str(product_type) in ['Unknown', 'Closed'] or str(env) in ['Unknown', 'Closed', 'nan']:
+            continue
+        key = f"{model} ({product_type})"
+        if key not in model_env_map:
+            model_env_map[key] = set()
+        model_env_map[key].add(env)
+    if not model_env_map:
+        return "<div class='section-empty'>No specific models identified</div>"
+    output = []
+    for model, envs in list(model_env_map.items())[:5]:
+        envs_str = ', '.join(sorted([str(e) for e in envs]))
+        output.append(f"<li><b>{model}</b> <span style='color:#64748b;'>[{envs_str}]</span></li>")
+    if len(model_env_map) > 5:
+        output.append(f"<li>... and {len(model_env_map) - 5} more</li>")
+    return f"<ul class='section-list'>{''.join(output)}</ul>"
+
+def format_list_section(items: list, icon: str = "", highlight: bool = False) -> str:
+    if not items:
+        return ""
+    output = []
+    for item in items:
+        if highlight:
+            # Try to bold product names and server counts
+            import re
+            item = re.sub(r"([A-Z][A-Z0-9 \-]+) ([0-9]+\.[0-9.]+): ([0-9,]+) server\(s\) across ([A-Z0-9, \-]+)",
+                          r"<b>\1 \2</b>: <span style='color:#0ea5e9;font-weight:bold;'>\3 servers</span> <span style='color:#64748b;'>across \4</span>",
+                          item)
+        output.append(f"<li>{icon} {item}</li>" if icon else f"<li>{item}</li>")
+    return f"<ul class='section-list'>{''.join(output)}</ul>"
 
 # --- Analytics Functions ---
 def get_analytics_data():
@@ -158,10 +117,14 @@ def create_query_analysis():
     if df is None or df.empty:
         return "No feedback data available yet."
     
+    # Query length analysis
     df['query_length'] = df['query'].str.len()
     avg_length = df['query_length'].mean()
+    
+    # Feedback score distribution
     score_counts = df['feedback_score'].value_counts().sort_index()
     
+    # Create charts
     fig1 = go.Figure(data=[
         go.Bar(x=['Short (<50)', 'Medium (50-100)', 'Long (>100)'], 
                y=[len(df[df['query_length'] < 50]), 
@@ -215,59 +178,44 @@ def create_recent_feedback_table():
     if df is None or df.empty:
         return "No feedback data available yet."
     
+    # Get recent feedback (last 10)
     recent_df = df.sort_values('timestamp', ascending=False).head(10)
     
     table_html = "<table style='width: 100%; border-collapse: collapse; margin: 1rem 0;'>"
-    table_html += "<thead>...</thead><tbody>" # Simplified for brevity
+    table_html += """
+    <thead>
+        <tr style='background: #f8fafc;'>
+            <th style='padding: 0.5rem; text-align: left; border-bottom: 1px solid #e2e8f0;'>Date</th>
+            <th style='padding: 0.5rem; text-align: left; border-bottom: 1px solid #e2e8f0;'>Query</th>
+            <th style='padding: 0.5rem; text-align: center; border-bottom: 1px solid #e2e8f0;'>Score</th>
+            <th style='padding: 0.5rem; text-align: left; border-bottom: 1px solid #e2e8f0;'>OS</th>
+        </tr>
+    </thead>
+    <tbody>
+    """
     
     for _, row in recent_df.iterrows():
         score_icon = "✅" if row['feedback_score'] == 1 else "❌" if row['feedback_score'] == 0 else "⏳"
         query_preview = row['query'][:50] + "..." if len(row['query']) > 50 else row['query']
         date_str = row['timestamp'].strftime('%Y-%m-%d %H:%M')
-        table_html += f"<tr><td>{date_str}</td><td>{query_preview}</td><td>{score_icon}</td><td>{row['user_os']}</td></tr>"
+        
+        table_html += f"""
+        <tr>
+            <td style='padding: 0.5rem; border-bottom: 1px solid #f1f5f9;'>{date_str}</td>
+            <td style='padding: 0.5rem; border-bottom: 1px solid #f1f5f9;'>{query_preview}</td>
+            <td style='padding: 0.5rem; text-align: center; border-bottom: 1px solid #f1f5f9;'>{score_icon}</td>
+            <td style='padding: 0.5rem; border-bottom: 1px solid #f1f5f9;'>{row['user_os']}</td>
+        </tr>
+        """
     
     table_html += "</tbody></table>"
-    return f"<div style='margin: 1rem 0;'><h3>Recent Feedback</h3>{table_html}</div>"
-
-# --- Formatting Functions ---
-def format_status(result: CompatibilityResult) -> str:
-    status = "COMPATIBLE" if result.is_compatible else "INCOMPATIBLE"
-    color = "#22c55e" if result.is_compatible else "#ef4444"
-    return f"<span style='display:inline-block;padding:0.4em 1em;border-radius:1em;background:{color};color:white;font-weight:bold;font-size:1.1em;'>{status}</span> <span style='color:#64748b;font-size:1em;'>(Confidence: {result.confidence:.1%})</span>"
-
-def format_affected_models(result: CompatibilityResult) -> str:
-    if not result.affected_servers:
-        return "<div class='section-empty'>No specific models identified</div>"
-    model_env_map = {}
-    for server in result.affected_servers:
-        model = server.get('server_info', {}).get('model', 'Unknown')
-        product_type = server.get('server_info', {}).get('product_type', 'Unknown')
-        env = server.get('environment', 'Unknown')
-        if str(model) in ['Unknown', 'Closed'] or str(product_type) in ['Unknown', 'Closed'] or str(env) in ['Unknown', 'Closed', 'nan']:
-            continue
-        key = f"{model} ({product_type})"
-        if key not in model_env_map:
-            model_env_map[key] = set()
-        model_env_map[key].add(env)
-    if not model_env_map:
-        return "<div class='section-empty'>No specific models identified</div>"
-    output = []
-    for model, envs in list(model_env_map.items())[:5]:
-        envs_str = ', '.join(sorted([str(e) for e in envs]))
-        output.append(f"<li><b>{model}</b> <span style='color:#64748b;'>[{envs_str}]</span></li>")
-    if len(model_env_map) > 5:
-        output.append(f"<li>... and {len(model_env_map) - 5} more</li>")
-    return f"<ul class='section-list'>{''.join(output)}</ul>"
-
-def format_list_section(items: list, icon: str = "", highlight: bool = False) -> str:
-    if not items: return ""
-    output = []
-    for item in items:
-        if highlight:
-            item = re.sub(r"([A-Z][A-Z0-9 \-]+) ([0-9]+\.[0-9.]+): ([0-9,]+) server\(s\) across ([A-Z0-9, \-]+)",
-                          r"<b>\1 \2</b>: <span style='color:#0ea5e9;font-weight:bold;'>\3 servers</span> <span style='color:#64748b;'>across \4</span>", item)
-        output.append(f"<li>{icon} {item}</li>" if icon else f"<li>{item}</li>")
-    return f"<ul class='section-list'>{''.join(output)}</ul>"
+    
+    return f"""
+    <div style="margin: 1rem 0;">
+        <h3>Recent Feedback</h3>
+        {table_html}
+    </div>
+    """
 
 def build_interface():
     with gr.Blocks(theme=gr.themes.Soft(), css="""
@@ -282,6 +230,7 @@ def build_interface():
     .os-question {font-size: 1.1em; color: #334155; margin-bottom: 1em;}
     .gr-accordion {margin-bottom: 1em;}
     """) as demo:
+        # State variables
         user_os = gr.State("")
         detected_os = gr.State("")
         session_id = gr.State("")
@@ -291,55 +240,26 @@ def build_interface():
         with gr.Row():
             with gr.Column(scale=3):
                 gr.Markdown("""
-                <div class='main-title'>Infrastructure Search Assistant</div>
-                <div class='subtitle'>Ask questions about your servers, software, and infrastructure</div>
+                <div class='main-title'>AI Compliance Advisor</div>
+                <div class='subtitle'>Analyze your software change requests for compatibility with your infrastructure</div>
                 """)
-                
-                # Database dropdown
-                db_options = get_database_options()
-                
-                with gr.Row():
-                    db_dropdown = gr.Dropdown(
-                        choices=db_options,
-                        label="Select Database Version (Optional)",
-                        value=None,
-                        allow_custom_value=True,
-                        info="Choose a specific database version to focus your search",
-                        scale=2
-                    )
-                    refresh_db_btn = gr.Button("🔄 Refresh", size="sm", scale=1)
-                
-                # OSI dropdown
-                osi_options = get_osi_options()
-                
-                with gr.Row(visible=True) as osi_row:
-                    osi_dropdown = gr.Dropdown(
-                        choices=osi_options,
-                        label="Select OSI Version",
-                        value=None,
-                        allow_custom_value=True,
-                        info="Choose your specific OSI version",
-                        scale=2
-                    )
-                    refresh_osi_btn = gr.Button("🔄 Refresh", size="sm", scale=1)
-                
                 request_box = gr.Textbox(
-                    label="Your Question",
-                    placeholder="E.g. 'What servers are running Apache HTTPD?' or 'What OS does Apache run best on?'",
+                    label="Software Change Request",
+                    placeholder="E.g. 'Upgrade Apache 2.4.50 and remove Tomcat 9.0 in production'",
                     lines=4,
                     elem_id="request-box"
                 )
-                analyze_btn = gr.Button("Search Infrastructure", elem_id="analyze-btn", variant="primary")
+                analyze_btn = gr.Button("Run Analysis", elem_id="analyze-btn", variant="primary")
                 
                 # --- Results Section ---
                 results_md = gr.Markdown(visible=False)
 
                 # --- Feedback Section ---
                 with gr.Column(visible=False) as feedback_container:
-                    gr.Markdown("**Rate these search results**", elem_id="feedback-header")
+                    gr.Markdown("**Rate this analysis**", elem_id="feedback-header")
                     with gr.Row():
-                        feedback_good_btn = gr.Button("👍 Helpful Results")
-                        feedback_bad_btn = gr.Button("👎 Not Helpful")
+                        feedback_good_btn = gr.Button("👍 Looks Good")
+                        feedback_bad_btn = gr.Button("👎 Needs Improvement")
                     feedback_thanks_md = gr.Markdown(visible=False)
 
                 # --- Analytics Section ---
@@ -388,19 +308,13 @@ def build_interface():
             }
 
         def confirm_os(os_name):
-            """Confirms the OS/OSI and updates the UI."""
+            """Confirms the OS and updates the UI."""
             return {
                 user_os: os_name,
                 os_question_md: gr.update(visible=False),
                 os_confirm_buttons: gr.update(visible=False),
                 os_select_dd: gr.update(visible=False),
                 os_confirmed_md: gr.update(value=f"✅ OS set to <b>{os_name}</b>", visible=True)
-            }
-
-        def confirm_osi(osi_name):
-            """Confirms the OSI selection and updates the UI."""
-            return {
-                os_confirmed_md: gr.update(value=f"✅ OSI version set to <b>{osi_name}</b>", visible=True)
             }
 
         def show_os_select():
@@ -411,61 +325,66 @@ def build_interface():
                 os_select_dd: gr.update(visible=True)
             }
 
-        def refresh_db_dropdown():
-            """Refresh the database dropdown with current data."""
-            db_options = get_database_options()
-            return gr.update(choices=db_options, value=None)
-
-        def refresh_osi_dropdown():
-            """Refresh the OSI dropdown with current data."""
-            osi_options = get_osi_options()
-            return gr.update(choices=osi_options, value=None)
-
-        def on_analyze(request_text, current_os, selected_db, selected_osi):
-            """Simple search function using VectorStore."""
+        def on_analyze(request_text, current_os):
+            """Main analysis function using multi-upgrade logic."""
             if not request_text.strip():
-                return {
-                    "results_md": gr.update(value="<div class='results-container section-empty'>⚠️ Please enter a question about your infrastructure.</div>", visible=True),
-                    "feedback_container": gr.update(visible=False),
-                    "feedback_thanks_md": gr.update(visible=False),
-                    "last_query": request_text,
-                    "last_results": ""
-                }
+                return {results_md: gr.update(value="<div class='results-container section-empty'>⚠️ Please enter a software change request.</div>", visible=True)}
+
+            # Use the new multi-upgrade parser and analyzer
+            change_requests = analyzer.parse_multiple_change_requests(request_text)
             
-            try:
-                # Enhance query with database and OSI selection if provided
-                enhanced_query = request_text
-                if selected_db and selected_db != "No database versions found":
-                    enhanced_query = f"{enhanced_query} [Database: {selected_db}]"
-                if selected_osi and selected_osi != "No OSI versions found":
-                    enhanced_query = f"{enhanced_query} [OSI: {selected_osi}]"
-                
-                # Use the query interface
-                results = query_interface.query(enhanced_query, top_k=5)
-                formatted_results = query_interface.format_results(results)
-                
-                return {
-                    "results_md": gr.update(value=formatted_results, visible=True),
-                    "feedback_container": gr.update(visible=True),
-                    "feedback_thanks_md": gr.update(visible=False),
-                    "last_query": enhanced_query,
-                    "last_results": str(results)
-                }
-            except Exception as e:
-                error_msg = f"<div class='results-container'><div class='section-empty'>❌ Error: {str(e)}</div></div>"
-                return {
-                    "results_md": gr.update(value=error_msg, visible=True),
-                    "feedback_container": gr.update(visible=False),
-                    "feedback_thanks_md": gr.update(visible=False),
-                    "last_query": request_text,
-                    "last_results": ""
-                }
+            # Pass the confirmed OS to the analyzer
+            results = analyzer.analyze_multiple_compatibility(change_requests, target_os=current_os)
+            
+            # Aggregate and format results
+            output = [f"<div>Analysis based on OS: <b>{current_os}</b></div><br>" if current_os else ""]
+            if not results:
+                output.append("<div class='section-empty'>Could not parse any valid change requests.</div>")
+            else:
+                for cr, result in results:
+                    # Header for each request
+                    output.append(f"<h3 class='section-header'>Request: {cr.action.title()} {cr.software_name} {cr.version or ''}</h3>")
+                    # Format each section
+                    output.append(format_status(result))
+                    output.append("<div class='section-header'>🗂️ Affected Models</div>")
+                    output.append(format_affected_models(result))
+                    if result.conflicts:
+                        output.append("<div class='section-header'>⛔ Conflicts</div>")
+                        output.append(format_list_section(result.conflicts, highlight=False))
+                    if result.warnings:
+                        output.append("<div class='section-header'>⚠️ Warnings</div>")
+                        output.append(format_list_section(result.warnings, highlight=False))
+                    if result.recommendations:
+                        output.append("<div class='section-header'>💡 Recommendations</div>")
+                        output.append(format_list_section(result.recommendations, highlight=True))
+                    if result.alternative_versions:
+                        output.append("<div class='section-header'>🔄 Alternative Versions</div>")
+                        output.append(format_list_section(result.alternative_versions, highlight=False))
+                    output.append("<hr style='margin: 2em 0; border: 1px solid #e0e7ef;'>")
+
+            formatted_output = f"<div class='results-container'>{''.join(output)}</div>"
+            
+            return {
+                results_md: gr.update(value=formatted_output, visible=True),
+                feedback_container: gr.update(visible=True),
+                feedback_thanks_md: gr.update(visible=False),
+                last_query: request_text,
+                last_results: formatted_output
+            }
 
         def log_feedback(score, query, results, os, sid):
             """Logs feedback and shows a thank you message."""
-            feedback_logger.log(query=query, generated_output=results, feedback_score=score, user_os=os, session_id=sid)
-            # Hide feedback_container, show thank you message
-            return gr.update(visible=False), gr.update(value="🙏 **Thank you for your feedback!**", visible=True)
+            feedback_logger.log(
+                query=query,
+                generated_output=results,
+                feedback_score=score,
+                user_os=os,
+                session_id=sid
+            )
+            return {
+                feedback_container: gr.update(visible=False),
+                feedback_thanks_md: gr.update(value="🙏 **Thank you for your feedback!**", visible=True)
+            }
 
         def update_analytics():
             """Update all analytics sections."""
@@ -486,26 +405,13 @@ def build_interface():
             outputs=[detected_os, os_question_md, os_confirm_buttons, os_select_dd]
         )
         os_yes_btn.click(confirm_os, inputs=detected_os, outputs=[user_os, os_question_md, os_confirm_buttons, os_select_dd, os_confirmed_md])
-        os_no_btn.click(show_os_select, outputs=[os_question_md, os_confirm_buttons, osi_row])
+        os_no_btn.click(show_os_select, outputs=[os_question_md, os_confirm_buttons, os_select_dd])
         os_select_dd.change(confirm_os, inputs=os_select_dd, outputs=[user_os, os_question_md, os_confirm_buttons, os_select_dd, os_confirmed_md])
-        osi_dropdown.change(confirm_osi, inputs=osi_dropdown, outputs=[os_confirmed_md])
 
         analyze_btn.click(
             on_analyze, 
-            inputs=[request_box, user_os, db_dropdown, osi_dropdown], 
+            inputs=[request_box, user_os], 
             outputs=[results_md, feedback_container, feedback_thanks_md, last_query, last_results]
-        )
-
-        # Refresh database dropdown
-        refresh_db_btn.click(
-            refresh_db_dropdown,
-            outputs=[db_dropdown]
-        )
-
-        # Refresh OSI dropdown
-        refresh_osi_btn.click(
-            refresh_osi_dropdown,
-            outputs=[osi_dropdown]
         )
 
         # Update analytics when page loads and after feedback
@@ -535,10 +441,10 @@ def build_interface():
 if __name__ == "__main__":
     demo = build_interface()
     demo.launch(
-        server_name="0.0.0.0",
-        server_port=7860,
-        share=False,
-        debug=False,
-        show_error=True,
-        quiet=False
+        server_name="0.0.0.0",  # Allow external connections
+        server_port=7860,       # Use standard Gradio port
+        share=False,            # Don't create public link
+        debug=False,            # Disable debug mode for production
+        show_error=True,        # Show errors in the interface
+        quiet=False             # Show startup messages
     )

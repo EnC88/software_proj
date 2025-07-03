@@ -77,7 +77,7 @@ def check_prerequisites() -> bool:
         'src/data_processing/chunk_compatibility.py',
         'src/data_processing/hybrid_embedder.py',
         'src/data_processing/build_faiss_index.py',
-        'src/rag/vector_store.py'
+        'src/rag/query_engine.py'
     ]
     
     for script_path in required_scripts:
@@ -131,8 +131,8 @@ def main():
     logger.info("🎉 Pipeline completed successfully!")
     logger.info("=" * 60)
     logger.info("Next steps:")
-    logger.info("1. Test the vector store: python src/rag/vector_store.py")
-    logger.info("2. Use the VectorStore class in your RAG application")
+    logger.info("1. Test the query engine: python src/rag/query_engine.py")
+    logger.info("2. Use the QueryEngine class in your RAG application")
     logger.info("3. Check pipeline.log for detailed execution logs")
 
 def run_query_test():
@@ -140,10 +140,10 @@ def run_query_test():
     logger.info("🧪 Testing query engine...")
     
     try:
-        from src.rag.vector_store import VectorStore
+        from src.rag.query_engine import QueryEngine
         
         # Initialize query engine
-        engine = VectorStore()
+        engine = QueryEngine()
         
         # Test a simple query
         test_query = "What servers are in the Production environment?"
