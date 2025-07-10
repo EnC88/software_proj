@@ -80,6 +80,14 @@ body, .gradio-container {
     justify-content: center;
     padding: 0;
 }
+.custom-dropdown {
+    appearance: none;
+    transition: border 0.2s, background 0.2s;
+}
+.custom-dropdown:hover, .custom-dropdown:focus {
+    border: 1.5px solid #2563eb !important;
+    background: #f1f5f9 !important;
+}
 """
 
 with gr.Blocks(theme=gr.themes.Soft(), css=custom_css) as demo:
@@ -104,12 +112,15 @@ with gr.Blocks(theme=gr.themes.Soft(), css=custom_css) as demo:
                     </span>
                     Operating System
                 </div>
-                <select style='width: 100%; padding: 0.9em 1em; border-radius: 0; border: 1.5px solid #e5e7eb; font-size: 1.1em; color: #1e293b; background: #fff; font-family: Inter, Roboto, Segoe UI, Arial, sans-serif; font-weight: 500; outline: none; box-shadow: none; margin-bottom: 2em;'>
+                <div style='position: relative; width: 100%; margin-bottom: 2em;'>
+                  <select class="custom-dropdown" style='width: 100%; padding: 0.9em 2.5em 0.9em 1em; border-radius: 0; border: 1.5px solid #e5e7eb; font-size: 1.1em; color: #1e293b; background: #fff; font-family: Inter, Roboto, Segoe UI, Arial, sans-serif; font-weight: 500; outline: none; box-shadow: none; appearance: none;'>
                     <option>Select operating system</option>
                     <option>Windows</option>
                     <option>Linux</option>
                     <option>macOS</option>
-                </select>
+                  </select>
+                  <span style='position: absolute; right: 1.2em; top: 50%; transform: translateY(-50%); pointer-events: none; font-size: 1.2em; color: #64748b;'>▼</span>
+                </div>
                 <div style='font-weight: 600; font-size: 1.1em; margin-bottom: 0.7em; color: #22c55e; display: flex; align-items: center; gap: 0.5em;'>
                     <span class='icon-box' style='background: #e0e7ef;'>
                         <!-- Material Design Database Icon (Stack) -->
@@ -117,12 +128,15 @@ with gr.Blocks(theme=gr.themes.Soft(), css=custom_css) as demo:
                     </span>
                     Database
                 </div>
-                <select style='width: 100%; padding: 0.9em 1em; border-radius: 0; border: 1.5px solid #e5e7eb; font-size: 1.1em; color: #1e293b; background: #fff; font-family: Inter, Roboto, Segoe UI, Arial, sans-serif; font-weight: 500; outline: none; box-shadow: none; margin-bottom: 2em;'>
+                <div style='position: relative; width: 100%; margin-bottom: 2em;'>
+                  <select class="custom-dropdown" style='width: 100%; padding: 0.9em 2.5em 0.9em 1em; border-radius: 0; border: 1.5px solid #e5e7eb; font-size: 1.1em; color: #1e293b; background: #fff; font-family: Inter, Roboto, Segoe UI, Arial, sans-serif; font-weight: 500; outline: none; box-shadow: none; appearance: none;'>
                     <option>Select database</option>
                     <option>PostgreSQL</option>
                     <option>MySQL</option>
                     <option>MongoDB</option>
-                </select>
+                  </select>
+                  <span style='position: absolute; right: 1.2em; top: 50%; transform: translateY(-50%); pointer-events: none; font-size: 1.2em; color: #64748b;'>▼</span>
+                </div>
                 <div style='font-weight: 600; font-size: 1.1em; margin-bottom: 0.7em; color: #f59e0b; display: flex; align-items: center; gap: 0.5em;'>
                     <span class='icon-box' style='background: #e0e7ef;'>
                         <!-- Material Design Server Icon (Web Server) -->
@@ -130,26 +144,79 @@ with gr.Blocks(theme=gr.themes.Soft(), css=custom_css) as demo:
                     </span>
                     Web Servers
                 </div>
-                <select style='width: 100%; padding: 0.9em 1em; border-radius: 0; border: 1.5px solid #e5e7eb; font-size: 1.1em; color: #1e293b; background: #fff; font-family: Inter, Roboto, Segoe UI, Arial, sans-serif; font-weight: 500; outline: none; box-shadow: none; margin-bottom: 0.2em;'>
+                <div style='position: relative; width: 100%; margin-bottom: 0.2em;'>
+                  <select class="custom-dropdown" style='width: 100%; padding: 0.9em 2.5em 0.9em 1em; border-radius: 0; border: 1.5px solid #e5e7eb; font-size: 1.1em; color: #1e293b; background: #fff; font-family: Inter, Roboto, Segoe UI, Arial, sans-serif; font-weight: 500; outline: none; box-shadow: none; appearance: none;'>
                     <option>Select web servers</option>
                     <option>Apache</option>
                     <option>Nginx</option>
                     <option>IIS</option>
-                </select>
+                  </select>
+                  <span style='position: absolute; right: 1.2em; top: 50%; transform: translateY(-50%); pointer-events: none; font-size: 1.2em; color: #64748b;'>▼</span>
+                </div>
             </div>
             """)
         with gr.Column(scale=2):
-            gr.Markdown("""
-            <div style='font-size:1.3em;font-weight:bold;margin-bottom:0.5em;color:#1e293b;'>System Compatibility Assistant</div>
-            <div style='color:#64748b;margin-bottom:1em;'>Ask questions about OS, databases, and web servers</div>
+            gr.HTML("""
+            <!-- Main Card -->
+            <div style='background: #fff; border-radius: 12px; box-shadow: 0 2px 8px #1e293b10; padding: 0; margin-bottom: 1.2em; max-width: 620px;'>
+                <!-- Header -->
+                <div style='background: linear-gradient(90deg, #1e293b 80%, #22304a 100%); border-radius: 12px 12px 0 0; padding: 1em 1.5em 0.7em 1.5em; color: #fff; display: flex; align-items: center; gap: 0.7em;'>
+                    <span style='background: #22304a; border-radius: 6px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;'>
+                        <!-- Chat bubble icon -->
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    </span>
+                    <div>
+                        <div style='font-size: 1.08em; font-weight: 700; letter-spacing: -0.01em;'>System Compatibility Assistant</div>
+                        <div style='color: #cbd5e1; font-size: 0.97em; margin-top: 0.05em;'>Ask questions about OS, databases, and web servers</div>
+                    </div>
+                </div>
+                <!-- Quick Start -->
+                <div style='padding: 0.8em 1.5em 0.5em 1.5em;'>
+                    <div style='font-size: 0.93em; color: #64748b; font-weight: 700; margin-bottom: 0.7em; letter-spacing: 0.04em;'>QUICK START</div>
+                    <div style='display: flex; flex-direction: column; gap: 0.5em;'>
+                        <button style='background: #f4f8ff; color: #2563eb; border: 1px solid #dbeafe; border-radius: 8px; display: flex; align-items: center; gap: 0.7em; font-weight: 700; font-size: 1em; padding: 0.7em 0.7em 0.7em 1em; width: 100%; justify-content: flex-start;'>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="12" rx="2.5"/><path d="M2 20h20"/></svg>
+                            <span style='font-weight: 700; color: #2563eb;'>Check OS compatibility</span>
+                        </button>
+                        <button style='background: #f3fcf6; color: #22c55e; border: 1px solid #bbf7d0; border-radius: 8px; display: flex; align-items: center; gap: 0.7em; font-weight: 700; font-size: 1em; padding: 0.7em 0.7em 0.7em 1em; width: 100%; justify-content: flex-start;'>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5.5" rx="9.5" ry="3.5"/><path d="M21.5 5.5v6c0 2-4.5 3.5-9.5 3.5s-9.5-1.5-9.5-3.5v-6"/><path d="M21.5 11.5v6c0 2-4.5 3.5-9.5 3.5s-9.5-1.5-9.5-3.5v-6"/></svg>
+                            <span style='font-weight: 700; color: #22c55e;'>Database requirements</span>
+                        </button>
+                        <button style='background: #fff7ed; color: #f59e0b; border: 1px solid #fde68a; border-radius: 8px; display: flex; align-items: center; gap: 0.7em; font-weight: 700; font-size: 1em; padding: 0.7em 0.7em 0.7em 1em; width: 100%; justify-content: flex-start;'>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="19" height="8.5" rx="2.5"/><rect x="2.5" y="13" width="19" height="8.5" rx="2.5"/><path d="M6 6.5h.01M6 17.5h.01"/></svg>
+                            <span style='font-weight: 700; color: #f59e0b;'>Web server setup</span>
+                        </button>
+                        <!-- Chat Card -->
+                        <div style='background: #fff; border-radius: 8px; box-shadow: 0 1px 4px #e0e7ef; padding: 1em 1em 0.6em 1em; width: 100%; margin-top: 0.5em;'>
+                            <div style='display: flex; flex-direction: column; align-items: flex-start;'>
+                                <div style='font-size: 0.93em; color: #64748b; font-weight: 700; margin-bottom: 0.3em; display: flex; align-items: center;'>
+                                    <span style='background: #e0e7ef; color: #475569; border-radius: 999px; padding: 0.12em 0.8em; font-size: 0.9em; font-weight: 700; margin-right: 0.5em;'>GENERAL</span>
+                                    <span style='color: #1e293b; font-weight: 700;'>System Compatibility Assistant</span>
+                                </div>
+                                <div style='background: #f6f8fa; color: #1e293b; border-radius: 8px; padding: 0.7em 0.9em; width: 96%; box-shadow: 0 1px 4px #e0e7ef; font-size: 0.97em; margin-bottom: 1em;'>Hello! I'm your System Compatibility Assistant. I can help you with questions about operating systems, databases, and web servers. What would you like to know?</div>
+                                <div style='color: #b6c2d6; font-size: 0.93em; margin-top: 0.1em;'>02:42 PM</div>
+                            </div>
+                        </div>
+                        <!-- Input Row -->
+                        <form id='chat-form' style='display: flex; align-items: center; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 1px 4px #e0e7ef; padding: 0.7em 1em; width: 100%; margin-top: 0.5em;'>
+                            <input id='chat-input' type='text' placeholder='Ask about system compatibility...' style='flex: 1; border: none; outline: none; font-size: 1em; background: transparent; color: #1e293b; padding: 0.5em 0; border-radius: 4px;'/>
+                            <button type='submit' style='background: #2563eb; border: none; border-radius: 6px; padding: 0.4em 0.7em; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.1em; cursor: pointer; width: 38px; height: 38px;'>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <script>
+            // Dummy chat logic for demo (no bubbles, just input clear)
+            const chatForm = document.getElementById('chat-form');
+            const chatInput = document.getElementById('chat-input');
+            chatForm.onsubmit = function(e) {
+                e.preventDefault();
+                chatInput.value = '';
+            };
+            </script>
             """)
-            with gr.Row():
-                gr.Button("Check OS compatibility", elem_classes="quick-btn")
-                gr.Button("Database requirements", elem_classes="quick-btn")
-                gr.Button("Web server setup", elem_classes="quick-btn")
-            chatbot = gr.Chatbot(label="System Compatibility Assistant")
-            user_input = gr.Textbox(label="Ask about system compatibility...", lines=1)
-            user_input.submit(dummy_chatbot, [user_input, chatbot], chatbot)
 
     gr.Markdown("---")
     gr.Markdown("""
