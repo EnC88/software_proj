@@ -70,6 +70,16 @@ body, .gradio-container {
     color: #1e293b !important;
     font-weight: 700 !important;
 }
+.icon-box {
+    background: #22304a;
+    border-radius: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
 """
 
 with gr.Blocks(theme=gr.themes.Soft(), css=custom_css) as demo:
@@ -77,9 +87,9 @@ with gr.Blocks(theme=gr.themes.Soft(), css=custom_css) as demo:
         with gr.Column(scale=1):
             gr.HTML("""
             <div style='background: linear-gradient(90deg, #1e293b 80%, #22304a 100%); border-radius: 0; padding: 1.5em 1.5em 1em 1.5em; color: #fff; box-shadow: 0 2px 12px #e0e7ef; display: flex; align-items: center; gap: 1em;'>
-                <span style='background: #22304a; border-radius: 0; padding: 0.6em; display: flex; align-items: center; justify-content: center;'>
-                    <!-- Gear Icon (Settings) -->
-                    <svg width="28" height="28" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.09A1.65 1.65 0 0 0 12 3.09V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.09A1.65 1.65 0 0 0 21 12h.09a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                <span class='icon-box'>
+                    <!-- Material Design Gear Icon (Settings) -->
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.14,12.94a7.07,7.07,0,0,0,0-1.88l2.11-1.65a.5.5,0,0,0,.12-.66l-2-3.46a.5.5,0,0,0-.61-.22l-2.49,1a7,7,0,0,0-1.6-.93l-.38-2.65A.5.5,0,0,0,13,2h-2a.5.5,0,0,0-.5.42l-.38,2.65a7,7,0,0,0-1.6.93l-2.49-1a.5.5,0,0,0-.61.22l-2,3.46a.5.5,0,0,0,.12.66l2.11,1.65a7.07,7.07,0,0,0,0,1.88L2.27,14.59a.5.5,0,0,0-.12.66l2,3.46a.5.5,0,0,0,.61.22l2.49-1a7,7,0,0,0,1.6.93l.38,2.65A.5.5,0,0,0,11,22h2a.5.5,0,0,0,.5-.42l.38-2.65a7,7,0,0,0,1.6-.93l2.49,1a.5.5,0,0,0,.61-.22l2-3.46a.5.5,0,0,0-.12-.66ZM12,15.5A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z"/></svg>
                 </span>
                 <div>
                     <div style='font-size: 1.5em; font-weight: bold;'>System Configuration</div>
@@ -88,8 +98,10 @@ with gr.Blocks(theme=gr.themes.Soft(), css=custom_css) as demo:
             </div>
             <div style='background: #fff; border-radius: 0; padding: 2em 1.5em 1.5em 1.5em; box-shadow: 0 2px 12px #e0e7ef;'>
                 <div style='font-weight: 600; font-size: 1.1em; margin-bottom: 0.7em; color: #2563eb; display: flex; align-items: center; gap: 0.5em;'>
-                    <!-- Laptop Icon (OS) -->
-                    <svg width="20" height="20" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M2 20h20"/></svg>
+                    <span class='icon-box' style='background: #e0e7ef;'>
+                        <!-- Material Design Laptop Icon (OS) -->
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M2 20h20"/></svg>
+                    </span>
                     Operating System
                 </div>
                 <select style='width: 100%; padding: 0.9em 1em; border-radius: 0; border: 1.5px solid #e5e7eb; font-size: 1.1em; color: #1e293b; background: #fff; font-family: Inter, Roboto, Segoe UI, Arial, sans-serif; font-weight: 500; outline: none; box-shadow: none; margin-bottom: 2em;'>
@@ -99,8 +111,10 @@ with gr.Blocks(theme=gr.themes.Soft(), css=custom_css) as demo:
                     <option>macOS</option>
                 </select>
                 <div style='font-weight: 600; font-size: 1.1em; margin-bottom: 0.7em; color: #22c55e; display: flex; align-items: center; gap: 0.5em;'>
-                    <!-- Database Icon (Stack) -->
-                    <svg width="20" height="20" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 5v6c0 1.657-4.03 3-9 3s-9-1.343-9-3V5"/><path d="M21 11v6c0 1.657-4.03 3-9 3s-9-1.343-9-3v-6"/></svg>
+                    <span class='icon-box' style='background: #e0e7ef;'>
+                        <!-- Material Design Database Icon (Stack) -->
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 5v6c0 1.657-4.03 3-9 3s-9-1.343-9-3V5"/><path d="M21 11v6c0 1.657-4.03 3-9 3s-9-1.343-9-3v-6"/></svg>
+                    </span>
                     Database
                 </div>
                 <select style='width: 100%; padding: 0.9em 1em; border-radius: 0; border: 1.5px solid #e5e7eb; font-size: 1.1em; color: #1e293b; background: #fff; font-family: Inter, Roboto, Segoe UI, Arial, sans-serif; font-weight: 500; outline: none; box-shadow: none; margin-bottom: 2em;'>
@@ -110,8 +124,10 @@ with gr.Blocks(theme=gr.themes.Soft(), css=custom_css) as demo:
                     <option>MongoDB</option>
                 </select>
                 <div style='font-weight: 600; font-size: 1.1em; margin-bottom: 0.7em; color: #f59e0b; display: flex; align-items: center; gap: 0.5em;'>
-                    <!-- Server Icon (Web Server) -->
-                    <svg width="20" height="20" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><path d="M6 6h.01M6 18h.01"/></svg>
+                    <span class='icon-box' style='background: #e0e7ef;'>
+                        <!-- Material Design Server Icon (Web Server) -->
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><path d="M6 6h.01M6 18h.01"/></svg>
+                    </span>
                     Web Servers
                 </div>
                 <select style='width: 100%; padding: 0.9em 1em; border-radius: 0; border: 1.5px solid #e5e7eb; font-size: 1.1em; color: #1e293b; background: #fff; font-family: Inter, Roboto, Segoe UI, Arial, sans-serif; font-weight: 500; outline: none; box-shadow: none; margin-bottom: 0.2em;'>
