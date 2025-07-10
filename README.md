@@ -1,11 +1,13 @@
 # Software Compatibility RAG Pipeline
 
-A production-ready Retrieval-Augmented Generation (RAG) pipeline for software compatibility analysis using spaCy embeddings and FAISS indexing.
+A production-ready Retrieval-Augmented Generation (RAG) pipeline for software compatibility analysis using spaCy embeddings and FAISS indexing, now with a modern React frontend.
 
 ## 🏗️ Architecture
 
 ```
 src/
+├── api/                        # NEW: Flask API backend
+│   └── app.py                     # REST API for React frontend
 ├── data_processing/          # Data processing pipeline
 │   ├── chunk_compatibility.py    # Split data into chunks
 │   ├── spacy_embedder.py         # Generate embeddings with spaCy
@@ -22,6 +24,16 @@ src/
 │   │   └── Demo & CLI tools     # Testing and demonstration functions
 │   ├── web_interface.py         # Flask API interface (17KB)
 │   └── test_feedback.py         # CLI test interface (7.5KB)
+templates/                    # NEW: React frontend (Flask templates)
+├── src/
+│   ├── components/
+│   │   ├── ChatInterface.tsx    # Main chat interface
+│   │   ├── SystemConfiguration.tsx
+│   │   └── StatsOverview.tsx
+│   ├── lib/
+│   │   └── api.ts              # API service
+│   └── pages/
+│       └── Index.tsx           # Main page
 models/                      # Model files
 data/
 └── processed/               # Processed data
@@ -32,9 +44,32 @@ data/
 
 ## 🚀 Quick Start
 
-### Option 1: Docker Deployment (Recommended)
+### Option 1: Integrated Application (Recommended)
 
-The easiest way to run the application is using Docker:
+The easiest way to run the application with the new React frontend:
+
+```bash
+# Run the integrated application
+python run_integrated_app.py
+```
+
+This will:
+1. Check for Node.js and npm
+2. Install frontend dependencies
+3. Build the React frontend
+4. Start the Flask backend
+5. Serve the app at http://localhost:5000
+
+### Option 2: Docker Deployment
+
+```bash
+# Build and run with Docker Compose
+docker-compose -f docker-compose.integrated.yml up --build
+```
+
+### Option 3: Legacy Gradio Interface
+
+If you prefer the original Gradio interface:
 
 ```bash
 # Start the application
@@ -51,32 +86,40 @@ The easiest way to run the application is using Docker:
 ```
 
 **Access the application:**
-- **Web Interface**: http://localhost:7860 (Gradio dashboard)
-- **API Endpoints**: http://localhost:5000 (Flask API)
+- **New React Interface**: http://localhost:5000 (Integrated Flask + React)
+- **Legacy Gradio Interface**: http://localhost:7860 (Gradio dashboard)
+- **API Endpoints**: http://localhost:5000/api (Flask API)
 
-### Option 2: Local Development
+## 🆕 New React Frontend Features
 
-### 1. Install Dependencies
-```bash
-pip install -r requirements.txt
-python -m spacy download en_core_web_trf  # Best quality model
-```
+### Modern Chat Interface
+- Real-time compatibility analysis
+- System configuration panel
+- Quick action buttons
+- Loading states and error handling
+- Message history
 
-### 2. Run Complete Pipeline
-```bash
-python pipeline.py
-```
+### System Configuration
+- Operating system selection
+- Database selection
+- Web server selection
+- Real-time configuration summary
 
-This will run:
-1. **Chunking** - Split raw data into meaningful chunks
-2. **Embedding** - Generate embeddings using spaCy transformer model
-3. **Indexing** - Build FAISS index for fast similarity search
+### Analytics Dashboard
+- Query analytics and performance metrics
+- Feedback collection and analysis
+- User behavior tracking
+- System health monitoring
 
-### 3. Test Query Engine
-```bash
-# Test the vector store
-python src/rag/vector_store.py
-```
+## 🔧 API Endpoints
+
+The new Flask API provides:
+
+- `GET /api/health` - Health check
+- `POST /api/analyze` - Analyze compatibility
+- `POST /api/feedback` - Submit feedback
+- `GET /api/analytics` - Get analytics data
+- `GET /api/suggestions` - Get quick actions
 
 ## 🐳 Docker Deployment
 
@@ -104,88 +147,47 @@ Before starting the application, you must set up secure credentials:
 # Generate secure credentials (first time only)
 ./deploy.sh setup
 
-# Start application
-./deploy.sh start
+# Start integrated application
+python run_integrated_app.py
+
+# Or use Docker
+docker-compose -f docker-compose.integrated.yml up -d
 
 # View logs
-./deploy.sh logs
+docker-compose -f docker-compose.integrated.yml logs -f
 
 # Stop application
-./deploy.sh stop
-
-# Restart application
-./deploy.sh restart
+docker-compose -f docker-compose.integrated.yml down
 
 # Check status
-./deploy.sh status
-
-# Clean up (removes all containers and images)
-./deploy.sh cleanup
-```
-
-### Manual Docker Commands
-```bash
-# Build and start
-docker-compose up --build -d
-
-# View logs
-docker-compose logs -f app
-
-# Stop
-docker-compose down
-
-# Rebuild
-docker-compose up --build --force-recreate -d
+docker-compose -f docker-compose.integrated.yml ps
 ```
 
 ### Services Available
-- **Main App**: http://localhost:7860 (Gradio interface)
-- **Analytics Dashboard**: http://localhost:8501 (Streamlit dashboard)
-- **API**: http://localhost:5000 (Flask API)
+- **React Frontend**: http://localhost:5000 (Integrated interface)
+- **Legacy Gradio**: http://localhost:7860 (Original interface)
+- **API**: http://localhost:5000/api (Flask API)
 - **PostgreSQL**: localhost:5432 (Database)
 - **Redis**: localhost:6379 (Caching)
 
-### Production Deployment
-The system now includes PostgreSQL and Redis for production use with enhanced security:
+## 🧪 Testing
 
-```yaml
-# Services automatically included:
-postgres:
-  image: postgres:15
-  # Production database with JSONB support and secure credentials
-
-redis:
-  image: redis:7-alpine
-  # Caching and session management
-
-# Security features:
-# - Rate limiting on all API endpoints
-# - Security headers (XSS protection, CSRF, etc.)
-# - Input validation and sanitization
-# - Secure credential management
+### Integration Tests
+```bash
+# Test the integrated application
+python test_integration.py
 ```
 
-### Environment Variables
-- `PYTHONPATH=/app` - Python path configuration
-- `GRADIO_SERVER_NAME=0.0.0.0` - Allow external connections
-- `GRADIO_SERVER_PORT=7860` - Gradio server port
-- `FLASK_ENV=production` - Flask environment
-- `DATABASE_URL` - Database connection (auto-generated)
-- `FLASK_SECRET_KEY` - Flask secret key (auto-generated)
-- `POSTGRES_PASSWORD` - Database password (auto-generated)
+### API Testing
+```bash
+# Test health endpoint
+curl http://localhost:5000/api/health
 
-### Data Persistence
-- `./data:/app/data` - Application data is persisted
-- `./logs:/app/logs` - Application logs are persisted
-- `postgres_data:/var/lib/postgresql/data` - Database data is persisted
-
-### Security Features
-- **Rate Limiting**: API endpoints are rate-limited to prevent abuse
-- **Input Validation**: All inputs are validated and sanitized
-- **Security Headers**: XSS protection, CSRF protection, content type validation
-- **Secure Credentials**: Auto-generated secure passwords and keys
-- **Error Handling**: Proper error handling without information leakage
-- **Database Security**: Parameterized queries to prevent SQL injection
+# Test analysis endpoint
+curl -X POST http://localhost:5000/api/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Upgrade Apache to 2.4.50"}'
+```
 
 ## 📊 Analytics Dashboard
 
@@ -205,58 +207,29 @@ redis:
 # Access at: http://localhost:8501
 ```
 
-### Dashboard Sections
-1. **Overview Metrics**: Key performance indicators
-2. **Feedback Trends**: Time-series analysis
-3. **Activity Patterns**: Usage patterns by hour/day
-4. **OS Analysis**: Performance by operating system
-5. **Session Analysis**: User session statistics
-6. **Recent Feedback**: Latest feedback entries
+## 🔄 Migration from Gradio
 
-## 🔄 CI/CD Pipeline
+The new React frontend provides a modern alternative to the Gradio interface:
 
-### GitHub Actions Workflow
-The project includes a comprehensive CI/CD pipeline with security scanning:
+- **Old**: `templates/landing.py` (Gradio)
+- **New**: `frontend/` (React + Flask API)
 
-```yaml
-# Triggered on:
-# - Push to main/develop branches
-# - Pull requests to main branch
-```
+### Migration Steps
 
-### Pipeline Stages
-1. **Test**: Multi-Python version testing (3.9, 3.10, 3.11)
-2. **Security**: Bandit security scanning with high-severity failure
-3. **Build**: Docker image building and pushing
-4. **Deploy**: Staging and production deployments
-5. **Performance**: Load testing with Locust
-6. **Notify**: Success/failure notifications
+1. **Test new interface**
+   ```bash
+   python run_integrated_app.py
+   ```
 
-### Features
-- **Code Quality**: Flake8 linting, Black formatting
-- **Test Coverage**: Pytest with coverage reporting
-- **Security**: Automated security scanning with failure on high-severity issues
-- **Multi-Platform**: Docker images for AMD64 and ARM64
-- **Caching**: Optimized build caching
-- **Notifications**: Slack/webhook notifications
+2. **Update deployment scripts**
+   - Replace Gradio references with new endpoints
+   - Update Docker configurations
+   - Update CI/CD pipelines
 
-### Setup
-1. **Enable GitHub Actions** in your repository
-2. **Set up environments** (staging, production) in GitHub
-3. **Configure secrets** for deployment credentials
-4. **Add notification webhooks** (optional)
-
-### Manual Testing
-```bash
-# Run tests locally
-pytest tests/ --cov=src/evaluation/
-
-# Run linting
-flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
-
-# Run security scan
-bandit -r src/ -f json -o bandit-report.json
-```
+3. **Remove old interface** (optional)
+   ```bash
+   rm -rf templates/
+   ```
 
 ## 📋 Pipeline Steps
 
@@ -319,34 +292,53 @@ store = VectorStore(
 - **Search Speed**: FAISS index for sub-second similarity search
 - **Memory Usage**: ~500MB for transformer model + index
 - **Offline Capable**: No internet required after model download
+- **Frontend Performance**: React 18 with Vite for fast builds
+- **Backend Performance**: Flask with rate limiting and caching
 
 ## 🐛 Troubleshooting
 
 ### Common Issues
 
-1. **spaCy model not found**
+1. **Frontend Build Fails**
+   ```bash
+   cd frontend
+   rm -rf node_modules package-lock.json
+   npm install
+   npm run build
+   ```
+
+2. **API Connection Issues**
+   - Check if Flask server is running
+   - Verify API URL in frontend configuration
+   - Check CORS settings
+
+3. **spaCy model not found**
    ```bash
    python -m spacy download en_core_web_trf
    ```
 
-2. **FAISS not installed**
+4. **FAISS not installed**
    ```bash
    pip install faiss-cpu  # or faiss-gpu for GPU support
    ```
 
-3. **Memory issues with large datasets**
+5. **Memory issues with large datasets**
    - Use smaller spaCy model: `en_core_web_sm`
    - Reduce batch size in embedding generation
 
 ### Logs
 - Check `pipeline.log` for detailed execution logs
 - All scripts include comprehensive logging
+- Frontend: Check browser console
+- Backend: Check Flask logs
 
 ## 🔄 Development Workflow
 
 1. **Data Changes**: Update raw data, run `pipeline.py`
 2. **Model Changes**: Update `spacy_embedder.py`, re-run pipeline
 3. **Query Logic**: Modify `vector_store.py`, test with sample queries
+4. **Frontend Changes**: Modify React components in `frontend/src/`
+5. **API Changes**: Modify Flask routes in `src/api/app.py`
 
 ## 📄 API Reference
 
@@ -386,6 +378,7 @@ store.add_document("New server information", {"type": "server", "environment": "
 2. Add comprehensive logging
 3. Include error handling
 4. Update this README for new features
+5. Test both frontend and backend changes
 
 ## 📄 License
 

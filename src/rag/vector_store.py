@@ -15,6 +15,9 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 from sklearn.feature_extraction.text import TfidfVectorizer
+from dataclasses import dataclass
+import re
+from collections import defaultdict, Counter
 
 # Add parent directories to path for imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
@@ -31,6 +34,10 @@ logger = logging.getLogger(__name__)
 # Go up more levels to reach the root where tlcaas directory is located
 REPO_ROOT = Path(__file__).resolve().parents[4]  # Go up 4 levels instead of 2
 
+# Remove the dataclasses and CheckCompatibility class from this file.
+# Instead, import CheckCompatibility, ChangeRequest, and CompatibilityResult from src.data_processing.analyze_compatibility
+from src.data_processing.analyze_compatibility import CheckCompatibility, ChangeRequest, CompatibilityResult
+
 class SimpleVectorStore:
     """Simple vector store using TF-IDF for offline operation."""
     
@@ -40,7 +47,7 @@ class SimpleVectorStore:
         self.tfidf_matrix = None
         self.faiss_index = None
         self._build_index()
-
+    
 
     def _build_index(self):
         """Build TF-IDF index from documents."""
@@ -344,6 +351,7 @@ class VectorStore:
         # Initialize the system
         self._initialize_components()
         self._load_and_process_data()
+        self.check_compat = CheckCompatibility()
     
     def _initialize_components(self):
         """Initialize components with improved error handling."""
@@ -538,7 +546,7 @@ class VectorStore:
         )
 
         metadata = {k: sor_record.get(k, None) for k in sor_record.keys()}
-
+        
         self.documents.append(Document(
             page_content=pattern_str,
             metadata=metadata
@@ -605,28 +613,16 @@ class VectorStore:
             logger.error(f"Error processing webserver data: {e}")
     
     def query(self, query_text: str, top_k: int = 5) -> Dict[str, Any]:
-        """Query the vectorstore for relevant documents.
-        
-        Args:
-            query_text: The query text
-            top_k: Number of top results to return
-            
-        Returns:
-            Dictionary containing results
-        """
+        """Query the vectorstore for relevant documents and include compatibility recommendations using CheckCompatibility."""
         if not self.is_initialized or not self.vectorstore:
             logger.error("Vectorstore not initialized")
             return {"error": "Vectorstore not available"}
-        
         try:
             logger.info(f"Querying for: '{query_text}' with top_k={top_k}")
             logger.info(f"Vectorstore has {len(self.documents)} documents")
-            
             # Get similar documents
             docs = self.vectorstore.similarity_search(query_text, k=top_k)
-            
             logger.info(f"Found {len(docs)} similar documents")
-            
             # Format results
             results = []
             for i, (doc, score) in enumerate(docs):
@@ -637,15 +633,36 @@ class VectorStore:
                     'score': score
                 }
                 results.append(result)
-            
+            # --- Use CheckCompatibility for recommendations and affected models ---
+            comp_result = None
+            try:
+                crs = self.check_compat.parse_multiple_change_requests(query_text)
+                comp_results = self.check_compat.analyze_multiple_compatibility(crs)
+                comp_result = [
+                    {
+                        'change_request': cr.__dict__,
+                        'compatibility': {
+                            'is_compatible': res.is_compatible,
+                            'confidence': res.confidence,
+                            'affected_servers': res.affected_servers,
+                            'conflicts': res.conflicts,
+                            'recommendations': res.recommendations,
+                            'warnings': res.warnings,
+                            'alternative_versions': res.alternative_versions
+                        }
+                    }
+                    for cr, res in comp_results
+                ]
+            except Exception as e:
+                logger.error(f"Error in CheckCompatibility: {e}")
             response = {
                 'query': query_text,
                 'results': results,
                 'total_results': len(results)
             }
-            
+            if comp_result:
+                response['compatibility_analysis'] = comp_result
             return response
-            
         except Exception as e:
             logger.error(f"Error during query: {e}")
             return {"error": str(e)}
@@ -733,7 +750,7 @@ def main():
         # Test a sample query
         sample_query = "Upgrade Oracle from 12.1.0.2.0 to 19.3.0.0.0 in Production environment"
         print(f"\nSample query: {sample_query}")
-        results = store.vectorstore.similarity_search(sample_query, k=3)
+        results = store.vectorstore.similarity_search(sample_query, k=5)
         print("\nTop 3 similar patterns:")
         for doc, score in results:
             print(f"Score: {score:.4f} | Pattern: {doc.page_content}")

@@ -2,8 +2,9 @@ import gradio as gr
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from src.rag.determine_recs import CompatibilityAnalyzer, CompatibilityResult, ChangeRequest
-from src.evaluation.feedback_system import FeedbackLogger
+from src.rag.determine_recs import CheckCompatibility, CompatibilityResult, ChangeRequest
+from src.data_processing.analyze_compatibility import CompatibilityAnalyzer
+from src.evaluation.feedback_system import FeedbackLogger, run_feedback_loop
 import uuid
 import plotly.graph_objects as go
 import plotly.express as px
@@ -11,6 +12,8 @@ import pandas as pd
 from datetime import datetime, timedelta
 import json
 
+# Instantiate the correct classes
+check_compat = CheckCompatibility()
 analyzer = CompatibilityAnalyzer()
 feedback_logger = FeedbackLogger()
 
@@ -257,9 +260,17 @@ def build_interface():
                 # --- Feedback Section ---
                 with gr.Column(visible=False) as feedback_container:
                     gr.Markdown("**Rate this analysis**", elem_id="feedback-header")
-                    with gr.Row():
-                        feedback_good_btn = gr.Button("👍 Looks Good")
-                        feedback_bad_btn = gr.Button("👎 Needs Improvement")
+                    feedback_score = gr.Radio(["👍 Yes", "👎 No"], label="Was this helpful?")
+                    feedback_correction = gr.Textbox(
+                        label="What should the correct answer have been? (required if not helpful)",
+                        visible=False,
+                        placeholder="Please provide the correct recommendation, affected models, or compatibility result..."
+                    )
+                    feedback_tags = gr.CheckboxGroup([
+                        "Wrong Answer", "Incomplete", "Irrelevant", "Correct", "Helpful"
+                    ], label="Select any issues or positives (optional)")
+                    feedback_notes = gr.Textbox(label="Additional comments (optional)")
+                    feedback_submit = gr.Button("Submit Feedback")
                     feedback_thanks_md = gr.Markdown(visible=False)
 
                 # --- Analytics Section ---
@@ -331,10 +342,10 @@ def build_interface():
                 return {results_md: gr.update(value="<div class='results-container section-empty'>⚠️ Please enter a software change request.</div>", visible=True)}
 
             # Use the new multi-upgrade parser and analyzer
-            change_requests = analyzer.parse_multiple_change_requests(request_text)
+            change_requests = check_compat.parse_multiple_change_requests(request_text)
             
             # Pass the confirmed OS to the analyzer
-            results = analyzer.analyze_multiple_compatibility(change_requests, target_os=current_os)
+            results = check_compat.analyze_multiple_compatibility(change_requests, target_os=current_os)
             
             # Aggregate and format results
             output = [f"<div>Analysis based on OS: <b>{current_os}</b></div><br>" if current_os else ""]
@@ -363,7 +374,7 @@ def build_interface():
                     output.append("<hr style='margin: 2em 0; border: 1px solid #e0e7ef;'>")
 
             formatted_output = f"<div class='results-container'>{''.join(output)}</div>"
-            
+                
             return {
                 results_md: gr.update(value=formatted_output, visible=True),
                 feedback_container: gr.update(visible=True),
@@ -372,15 +383,53 @@ def build_interface():
                 last_results: formatted_output
             }
 
-        def log_feedback(score, query, results, os, sid):
+        def on_feedback_score_change(score):
+            """Handle feedback score changes (show/hide correction field)."""
+            if score == "👎 No":
+                return gr.update(visible=True)
+            else:
+                return gr.update(visible=False)
+
+        def log_feedback(score, correction, tags, notes, query, results, os, sid):
             """Logs feedback and shows a thank you message."""
-            feedback_logger.log(
+            # Handle actual feedback submission
+            if score == "👍 Yes":
+                score_val = 1
+            elif score == "👎 No":
+                score_val = 0
+                # Require correction for negative feedback
+                if not correction or not correction.strip():
+                    return {
+                        feedback_container: gr.update(visible=True),
+                        feedback_thanks_md: gr.update(value="⚠️ **Please provide the correct answer before submitting.**", visible=True)
+                    }
+            else:
+                score_val = -1
+            
+            # Include correction in metadata
+            metadata = {"tags": tags}
+            if correction and correction.strip():
+                metadata["correction"] = correction.strip()
+            
+            # Log the feedback
+            success = feedback_logger.log(
                 query=query,
                 generated_output=results,
-                feedback_score=score,
+                feedback_score=score_val,
                 user_os=os,
-                session_id=sid
+                session_id=sid,
+                notes=notes,
+                metadata=metadata
             )
+            
+            # Automatically retrain if feedback was logged successfully
+            if success:
+                try:
+                    retrain_result = run_feedback_loop()
+                    print(f"Auto-retraining completed: {retrain_result}")
+                except Exception as e:
+                    print(f"Auto-retraining failed: {e}")
+            
             return {
                 feedback_container: gr.update(visible=False),
                 feedback_thanks_md: gr.update(value="🙏 **Thank you for your feedback!**", visible=True)
@@ -414,27 +463,20 @@ def build_interface():
             outputs=[results_md, feedback_container, feedback_thanks_md, last_query, last_results]
         )
 
+        feedback_score.change(
+            on_feedback_score_change,
+            inputs=[feedback_score],
+            outputs=[feedback_correction]
+        )
+
+        feedback_submit.click(
+            log_feedback,
+            inputs=[feedback_score, feedback_correction, feedback_tags, feedback_notes, last_query, last_results, user_os, session_id],
+            outputs=[feedback_container, feedback_thanks_md]
+        )
+
         # Update analytics when page loads and after feedback
         demo.load(update_analytics, outputs=[stats_md, query_analysis_md, os_analysis_md, recent_feedback_md])
-        
-        # Update analytics after feedback is submitted
-        feedback_good_btn.click(
-            lambda query, results, os, sid: log_feedback(1, query, results, os, sid),
-            inputs=[last_query, last_results, user_os, session_id],
-            outputs=[feedback_container, feedback_thanks_md]
-        ).then(
-            update_analytics,
-            outputs=[stats_md, query_analysis_md, os_analysis_md, recent_feedback_md]
-        )
-        
-        feedback_bad_btn.click(
-            lambda query, results, os, sid: log_feedback(0, query, results, os, sid),
-            inputs=[last_query, last_results, user_os, session_id],
-            outputs=[feedback_container, feedback_thanks_md]
-        ).then(
-            update_analytics,
-            outputs=[stats_md, query_analysis_md, os_analysis_md, recent_feedback_md]
-        )
 
     return demo
 
