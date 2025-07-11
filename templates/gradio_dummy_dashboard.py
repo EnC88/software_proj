@@ -88,6 +88,26 @@ body, .gradio-container {
     border: 1.5px solid #2563eb !important;
     background: #f1f5f9 !important;
 }
+.centered-config-chat-row {
+    display: flex !important;
+    justify-content: center !important;
+    max-width: 1100px;
+    margin-left: auto;
+    margin-right: auto;
+    gap: 2.5em;
+}
+.centered-config-chat-row > div {
+    margin-left: 0.5em;
+    margin-right: 0.5em;
+}
+.centered-config-chat-row > div:nth-child(1) {
+    max-width: 340px;
+    min-width: 320px;
+}
+.centered-config-chat-row > div:nth-child(2) {
+    max-width: 520px;
+    min-width: 400px;
+}
 """
 
 with gr.Blocks(theme=gr.themes.Soft(), css=custom_css) as demo:
@@ -169,7 +189,7 @@ with gr.Blocks(theme=gr.themes.Soft(), css=custom_css) as demo:
             </div>
         </div>
         """)
-    with gr.Row():
+    with gr.Row(elem_classes="centered-config-chat-row"):
         with gr.Column(scale=1):
             gr.HTML("""
             <div style='background: linear-gradient(90deg, #1e293b 80%, #22304a 100%); border-radius: 0; padding: 1.5em 1.5em 1em 1.5em; color: #fff; box-shadow: 0 2px 12px #e0e7ef; display: flex; align-items: center; gap: 1em;'>

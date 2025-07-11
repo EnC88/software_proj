@@ -1,350 +1,10 @@
 
 import React, { useState } from 'react';
-
-// All CSS styles embedded
-const styles = `
-  .chat-container {
-    display: flex;
-    height: 100vh;
-    background-color: #f9fafb;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-  }
-
-  .sidebar {
-    width: 320px;
-    background: white;
-    border-right: 1px solid #e5e7eb;
-    display: flex;
-    flex-direction: column;
-    transition: width 0.3s ease;
-  }
-
-  .sidebar.hidden {
-    width: 0;
-    overflow: hidden;
-  }
-
-  .sidebar-header {
-    padding: 1rem;
-    border-bottom: 1px solid #f3f4f6;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .sidebar-title {
-    font-size: 1.125rem;
-    font-weight: 600;
-    color: #111827;
-  }
-
-  .close-btn {
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    color: #6b7280;
-    cursor: pointer;
-    padding: 0.25rem;
-  }
-
-  .close-btn:hover {
-    color: #374151;
-  }
-
-  .sidebar-content {
-    flex: 1;
-    overflow-y: auto;
-    padding: 1rem;
-  }
-
-  .history-item {
-    padding: 0.75rem;
-    background: #f9fafb;
-    border-radius: 0.5rem;
-    margin-bottom: 0.75rem;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-  }
-
-  .history-item:hover {
-    background: #f3f4f6;
-  }
-
-  .history-title {
-    font-weight: 500;
-    color: #111827;
-    font-size: 0.875rem;
-    margin-bottom: 0.25rem;
-  }
-
-  .history-message {
-    font-size: 0.75rem;
-    color: #6b7280;
-    margin-bottom: 0.5rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .history-meta {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.75rem;
-    color: #9ca3af;
-  }
-
-  .main-area {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .header {
-    background: white;
-    border-bottom: 1px solid #e5e7eb;
-    padding: 1rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .header-left {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-  }
-
-  .header-title {
-    font-size: 1.5rem;
-    font-weight: bold;
-    color: #111827;
-  }
-
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    border: 1px solid #d1d5db;
-    border-radius: 0.375rem;
-    background: white;
-    color: #374151;
-    font-size: 0.875rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-
-  .btn:hover {
-    background: #f9fafb;
-    border-color: #9ca3af;
-  }
-
-  .btn-primary {
-    background: #1f2937;
-    color: white;
-    border-color: #1f2937;
-  }
-
-  .btn-primary:hover {
-    background: #374151;
-  }
-
-  .quick-actions {
-    background: white;
-    border-bottom: 1px solid #f3f4f6;
-    padding: 1rem;
-  }
-
-  .quick-actions-title {
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: #374151;
-    margin-bottom: 0.75rem;
-  }
-
-  .quick-actions-grid {
-    display: flex;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-  }
-
-  .quick-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1rem;
-    border: 1px solid;
-    border-radius: 0.375rem;
-    font-size: 0.875rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-
-  .quick-btn-os {
-    background: #eff6ff;
-    border-color: #bfdbfe;
-    color: #1d4ed8;
-  }
-
-  .quick-btn-os:hover {
-    background: #dbeafe;
-  }
-
-  .quick-btn-db {
-    background: #f0fdf4;
-    border-color: #bbf7d0;
-    color: #15803d;
-  }
-
-  .quick-btn-db:hover {
-    background: #dcfce7;
-  }
-
-  .quick-btn-server {
-    background: #fff7ed;
-    border-color: #fed7aa;
-    color: #c2410c;
-  }
-
-  .quick-btn-server:hover {
-    background: #ffedd5;
-  }
-
-  .chat-messages {
-    flex: 1;
-    overflow-y: auto;
-    padding: 1.5rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .message {
-    display: flex;
-    max-width: 70%;
-  }
-
-  .message.user {
-    justify-content: flex-end;
-    margin-left: auto;
-  }
-
-  .message.assistant {
-    justify-content: flex-start;
-  }
-
-  .message-content {
-    padding: 0.75rem 1rem;
-    border-radius: 0.75rem;
-    position: relative;
-  }
-
-  .message.user .message-content {
-    background: #1f2937;
-    color: white;
-  }
-
-  .message.assistant .message-content {
-    background: white;
-    border: 1px solid #e5e7eb;
-    color: #111827;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  }
-
-  .category-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.25rem 0.5rem;
-    border-radius: 9999px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    margin-bottom: 0.5rem;
-  }
-
-  .category-os {
-    background: #dbeafe;
-    color: #1d4ed8;
-  }
-
-  .category-database {
-    background: #dcfce7;
-    color: #15803d;
-  }
-
-  .category-webserver {
-    background: #ffedd5;
-    color: #c2410c;
-  }
-
-  .category-general {
-    background: #f3f4f6;
-    color: #374151;
-  }
-
-  .message-text {
-    font-size: 0.875rem;
-    line-height: 1.5;
-  }
-
-  .message-time {
-    font-size: 0.75rem;
-    margin-top: 0.5rem;
-    opacity: 0.7;
-  }
-
-  .input-area {
-    background: white;
-    border-top: 1px solid #e5e7eb;
-    padding: 1rem;
-  }
-
-  .input-container {
-    display: flex;
-    gap: 0.75rem;
-    max-width: 64rem;
-    margin: 0 auto;
-  }
-
-  .input-field {
-    flex: 1;
-    padding: 0.75rem 1rem;
-    border: 1px solid #d1d5db;
-    border-radius: 0.375rem;
-    font-size: 0.875rem;
-    outline: none;
-    transition: border-color 0.2s ease;
-  }
-
-  .input-field:focus {
-    border-color: #1f2937;
-    box-shadow: 0 0 0 1px #1f2937;
-  }
-
-  .send-btn {
-    padding: 0.75rem 1.5rem;
-    background: #1f2937;
-    color: white;
-    border: none;
-    border-radius: 0.375rem;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-  }
-
-  .send-btn:hover:not(:disabled) {
-    background: #374151;
-  }
-
-  .send-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .icon {
-    width: 1rem;
-    height: 1rem;
-  }
-`;
+import { NavLink, useLocation } from 'react-router-dom';
+import { MessageCircle, BarChart3, User, Settings, Send, Database, Server, Monitor, PanelLeft } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 interface Message {
   id: string;
@@ -363,42 +23,91 @@ interface ChatSession {
 }
 
 const SystemChatStandalone = () => {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: "Hello! I'm your System Compatibility Assistant. I can help you with questions about operating systems, databases, and web servers. Configure your system preferences in your profile for personalized recommendations.",
+      text: 'Hello! I\'m your System Compatibility Assistant. I can help you with questions about operating systems, databases, and web servers. What would you like to know?',
       isUser: false,
       timestamp: new Date(),
       category: 'general'
     }
   ]);
   const [inputValue, setInputValue] = useState('');
-  const [showHistory, setShowHistory] = useState(false);
+  const location = useLocation();
 
-  // Mock chat history
-  const chatHistory: ChatSession[] = [
+  const navigationItems = [
+    { title: 'Chat', url: '/', icon: MessageCircle },
+    { title: 'Dashboard', url: '/dashboard', icon: BarChart3 },
+    { title: 'Profile', url: '/profile', icon: User },
+  ];
+
+  const chatSessions: ChatSession[] = [
     {
       id: '1',
       title: 'Windows Server Setup',
       lastMessage: 'Thanks for the help with IIS configuration!',
-      timestamp: new Date(Date.now() - 86400000),
+      timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000),
       messageCount: 12
     },
     {
-      id: '2', 
+      id: '2',
       title: 'MySQL Compatibility',
       lastMessage: 'What about PostgreSQL vs MySQL?',
-      timestamp: new Date(Date.now() - 172800000),
+      timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
       messageCount: 8
     },
     {
       id: '3',
       title: 'Linux Migration',
       lastMessage: 'Ubuntu vs CentOS for production?',
-      timestamp: new Date(Date.now() - 259200000),
+      timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
       messageCount: 15
     }
   ];
+
+  const quickActions = [
+    { 
+      text: 'Check OS compatibility', 
+      icon: Monitor, 
+      category: 'os' as const,
+      color: 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100'
+    },
+    { 
+      text: 'Database requirements', 
+      icon: Database, 
+      category: 'database' as const,
+      color: 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
+    },
+    { 
+      text: 'Web server setup', 
+      icon: Server, 
+      category: 'webserver' as const,
+      color: 'bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100'
+    }
+  ];
+
+  const isActive = (path: string) => {
+    if (path === '/') return location.pathname === '/';
+    return location.pathname.startsWith(path);
+  };
+
+  const getNavClasses = (path: string) => 
+    isActive(path) ? "bg-slate-800 text-white" : "hover:bg-slate-100 text-gray-700";
+
+  const detectCategory = (text: string): Message['category'] => {
+    const lowerText = text.toLowerCase();
+    if (lowerText.includes('os') || lowerText.includes('operating system') || lowerText.includes('windows') || lowerText.includes('linux') || lowerText.includes('mac')) {
+      return 'os';
+    }
+    if (lowerText.includes('database') || lowerText.includes('mysql') || lowerText.includes('postgresql') || lowerText.includes('oracle')) {
+      return 'database';
+    }
+    if (lowerText.includes('web server') || lowerText.includes('apache') || lowerText.includes('nginx') || lowerText.includes('iis')) {
+      return 'webserver';
+    }
+    return 'general';
+  };
 
   const handleSendMessage = () => {
     if (!inputValue.trim()) return;
@@ -408,17 +117,19 @@ const SystemChatStandalone = () => {
       text: inputValue,
       isUser: true,
       timestamp: new Date(),
+      category: detectCategory(inputValue)
     };
 
     setMessages(prev => [...prev, userMessage]);
 
+    // Simulate AI response
     setTimeout(() => {
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
-        text: `I understand your question about "${inputValue}". Based on your system configuration, here's what I recommend...`,
+        text: `I understand you're asking about ${userMessage.category}. Let me help you with that. Based on your question about "${inputValue}", here's what I recommend...`,
         isUser: false,
         timestamp: new Date(),
-        category: 'general'
+        category: userMessage.category
       };
       setMessages(prev => [...prev, aiResponse]);
     }, 1000);
@@ -426,153 +137,206 @@ const SystemChatStandalone = () => {
     setInputValue('');
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSendMessage();
-    }
-  };
-
-  const handleQuickAction = (text: string) => {
-    setInputValue(text);
+  const handleQuickAction = (action: typeof quickActions[0]) => {
+    setInputValue(action.text);
   };
 
   const getCategoryIcon = (category: Message['category']) => {
     switch (category) {
-      case 'os': return '🖥️';
-      case 'database': return '🗄️';
-      case 'webserver': return '🖥️';
-      default: return '💬';
+      case 'os': return <Monitor className="w-3 h-3" />;
+      case 'database': return <Database className="w-3 h-3" />;
+      case 'webserver': return <Server className="w-3 h-3" />;
+      default: return <MessageCircle className="w-3 h-3" />;
     }
   };
 
-  const getCategoryClass = (category: Message['category']) => {
+  const getCategoryColor = (category: Message['category']) => {
     switch (category) {
-      case 'os': return 'category-os';
-      case 'database': return 'category-database';
-      case 'webserver': return 'category-webserver';
-      default: return 'category-general';
+      case 'os': return 'bg-blue-100 text-blue-700';
+      case 'database': return 'bg-green-100 text-green-700';
+      case 'webserver': return 'bg-orange-100 text-orange-700';
+      default: return 'bg-gray-100 text-gray-700';
     }
   };
 
   return (
-    <div>
-      <style>{styles}</style>
-      <div className="chat-container">
-        {/* Chat History Sidebar */}
-        {showHistory && (
-          <div className="sidebar">
-            <div className="sidebar-header">
-              <h3 className="sidebar-title">Chat History</h3>
-              <button 
-                className="close-btn"
-                onClick={() => setShowHistory(false)}
-              >
-                ×
-              </button>
+    <div className="min-h-screen flex w-full bg-gray-50">
+      {/* Sidebar */}
+      <div className={`${sidebarCollapsed ? 'w-14' : 'w-64'} bg-white border-r transition-all duration-300 flex flex-col`}>
+        {/* Sidebar Header */}
+        <div className="p-4 border-b">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-slate-800 rounded-lg flex items-center justify-center">
+              <Settings className="w-4 h-4 text-white" />
             </div>
-            <div className="sidebar-content">
-              {chatHistory.map((session) => (
-                <div key={session.id} className="history-item">
-                  <h4 className="history-title">{session.title}</h4>
-                  <p className="history-message">{session.lastMessage}</p>
-                  <div className="history-meta">
-                    <span>{session.messageCount} messages</span>
-                    <span>{session.timestamp.toLocaleDateString()}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Main Chat Area */}
-        <div className="main-area">
-          {/* Header */}
-          <div className="header">
-            <div className="header-left">
-              <h1 className="header-title">System Chat</h1>
-              <button
-                className="btn"
-                onClick={() => setShowHistory(!showHistory)}
-              >
-                🕒 History
-              </button>
-            </div>
-            <button className="btn">
-              ⚙️ Configure System
-            </button>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="quick-actions">
-            <p className="quick-actions-title">Quick Actions</p>
-            <div className="quick-actions-grid">
-              <button
-                className="quick-btn quick-btn-os"
-                onClick={() => handleQuickAction('Check OS compatibility')}
-              >
-                🖥️ Check OS compatibility
-              </button>
-              <button
-                className="quick-btn quick-btn-db"
-                onClick={() => handleQuickAction('Database requirements')}
-              >
-                🗄️ Database requirements
-              </button>
-              <button
-                className="quick-btn quick-btn-server"
-                onClick={() => handleQuickAction('Web server setup')}
-              >
-                🖥️ Web server setup
-              </button>
-            </div>
-          </div>
-
-          {/* Messages */}
-          <div className="chat-messages">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`message ${message.isUser ? 'user' : 'assistant'}`}
-              >
-                <div className="message-content">
-                  {!message.isUser && message.category && (
-                    <div className={`category-badge ${getCategoryClass(message.category)}`}>
-                      {getCategoryIcon(message.category)}
-                      {message.category.toUpperCase()}
-                    </div>
-                  )}
-                  <p className="message-text">{message.text}</p>
-                  <p className="message-time">
-                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                </div>
+            {!sidebarCollapsed && (
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">SysCompat</h2>
+                <p className="text-xs text-gray-500">System Assistant</p>
               </div>
-            ))}
+            )}
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="mt-2 ml-auto h-7 w-7"
+          >
+            <PanelLeft className="w-4 h-4" />
+          </Button>
+        </div>
+
+        {/* Navigation */}
+        <div className="p-4">
+          <div className="mb-4">
+            <h3 className="px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">
+              Navigation
+            </h3>
+            <nav className="space-y-1">
+              {navigationItems.map((item) => (
+                <NavLink
+                  key={item.title}
+                  to={item.url}
+                  className={`flex items-center gap-3 px-4 py-2 mx-2 rounded-lg transition-colors ${getNavClasses(item.url)}`}
+                >
+                  <item.icon className="w-4 h-4 flex-shrink-0" />
+                  {!sidebarCollapsed && <span className="font-medium">{item.title}</span>}
+                </NavLink>
+              ))}
+            </nav>
           </div>
 
-          {/* Input */}
-          <div className="input-area">
-            <div className="input-container">
-              <input
-                type="text"
-                className="input-field"
-                placeholder="Ask about system compatibility..."
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={handleKeyPress}
-              />
-              <button 
-                className="send-btn"
-                onClick={handleSendMessage}
-                disabled={!inputValue.trim()}
-              >
-                📤
-              </button>
+          {/* Chat History */}
+          {!sidebarCollapsed && (
+            <div>
+              <h3 className="px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">
+                Recent Chats
+              </h3>
+              <div className="space-y-2">
+                {chatSessions.map((session) => (
+                  <div
+                    key={session.id}
+                    className="mx-2 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors"
+                  >
+                    <h4 className="font-medium text-sm text-gray-900 truncate">{session.title}</h4>
+                    <p className="text-xs text-gray-500 mt-1 truncate">{session.lastMessage}</p>
+                    <div className="flex justify-between items-center mt-2">
+                      <span className="text-xs text-gray-400">{session.messageCount} messages</span>
+                      <span className="text-xs text-gray-400">
+                        {session.timestamp.toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col">
+        {/* Header */}
+        <div className="bg-white border-b px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">System Chat</h1>
+              <p className="text-gray-500 text-sm mt-1">Get help with system compatibility questions</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button variant="outline" size="sm">
+                <Settings className="w-4 h-4 mr-2" />
+                Configure System
+              </Button>
             </div>
           </div>
         </div>
-      </div>
+
+        {/* Chat Interface */}
+        <div className="flex-1 p-6">
+          <Card className="h-full shadow-lg border border-gray-200/50 flex flex-col">
+            <CardHeader className="bg-gradient-to-r from-slate-900 to-slate-800 text-white">
+              <CardTitle className="text-lg font-semibold flex items-center gap-3">
+                <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center">
+                  <MessageCircle className="w-4 h-4" />
+                </div>
+                System Compatibility Assistant
+              </CardTitle>
+              <p className="text-slate-300 text-sm mt-1">
+                Ask questions about OS, databases, and web servers
+              </p>
+            </CardHeader>
+            <CardContent className="p-0 flex-1 flex flex-col">
+              {/* Quick Actions */}
+              <div className="p-4 border-b border-gray-100">
+                <p className="text-xs font-medium text-gray-500 mb-3 uppercase tracking-wide">Quick Start</p>
+                <div className="grid grid-cols-1 gap-2">
+                  {quickActions.map((action, index) => (
+                    <Button
+                      key={index}
+                      variant="outline"
+                      onClick={() => handleQuickAction(action)}
+                      className={`justify-start h-auto p-3 border text-left ${action.color} transition-all duration-200`}
+                    >
+                      <action.icon className="w-4 h-4 mr-3 flex-shrink-0" />
+                      <span className="font-medium">{action.text}</span>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+                {messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-[80%] rounded-lg px-4 py-3 ${
+                        message.isUser
+                          ? 'bg-slate-800 text-white'
+                          : 'bg-white border border-gray-200 text-gray-800'
+                      }`}
+                    >
+                      {!message.isUser && message.category && (
+                        <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium mb-2 ${getCategoryColor(message.category)}`}>
+                          {getCategoryIcon(message.category)}
+                          {message.category.toUpperCase()}
+                        </div>
+                      )}
+                      <p className="text-sm leading-relaxed">{message.text}</p>
+                      <p className={`text-xs mt-2 ${message.isUser ? 'text-slate-300' : 'text-gray-500'}`}>
+                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Input */}
+              <div className="p-4 border-t border-gray-100">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Ask about system compatibility..."
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                    className="flex-1 border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  />
+                  <Button 
+                    onClick={handleSendMessage} 
+                    disabled={!inputValue.trim()}
+                    className="bg-slate-800 hover:bg-slate-700 text-white px-4"
+                  >
+                    <Send className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
     </div>
   );
 };
