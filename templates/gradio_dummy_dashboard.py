@@ -91,6 +91,84 @@ body, .gradio-container {
 """
 
 with gr.Blocks(theme=gr.themes.Soft(), css=custom_css) as demo:
+    gr.Markdown("---")
+    gr.Markdown("""
+    <div style='font-size: 2.3em; font-weight: 700; margin-bottom: 0.18em; text-align: center; color: #1e293b;'>System Compatibility Assistant</div>
+    <div style='color: #64748b; font-size: 1.15em; margin-bottom: 2.1em; text-align: center;'>Enterprise-grade system compatibility analysis and recommendations</div>
+    """)
+    with gr.Row():
+        gr.HTML("""
+        <div style='background: #fff; border-radius: 14px; box-shadow: 0 2px 8px #e0e7ef; padding: 1.7em 2.1em 1.2em 2em; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; position: relative;'>
+            <div style='color: #1e293b; font-size: 1.13em; font-weight: 700; margin-bottom: 0.2em;'>Total Queries</div>
+            <div style='font-size: 2.2em; font-weight: 700; color: #1e293b; letter-spacing: -0.01em; margin-bottom: 0.2em;'>12,847</div>
+            <div style='position: absolute; right: 1.2em; top: 50%; transform: translateY(-50%); display: flex; align-items: center; justify-content: center;'>
+                <span style="background: #f3f6fa; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                </span>
+            </div>
+            <div style='margin-top: 1.1em;'>
+                <div style='font-size: 1em; color: #22c55e; font-weight: 700; display: flex; align-items: center; gap: 0.2em;'>
+                    <svg width="13" height="13" fill="none" stroke="#22c55e" stroke-width="2" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                    +12.5%
+                </div>
+                <div style='font-size: 0.98em; color: #64748b; font-weight: 500;'>vs last month</div>
+            </div>
+        </div>
+        """)
+        gr.HTML("""
+        <div style='background: #fff; border-radius: 14px; box-shadow: 0 2px 8px #e0e7ef; padding: 1.7em 2.1em 1.2em 2em; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; position: relative;'>
+            <div style='color: #1e293b; font-size: 1.13em; font-weight: 700; margin-bottom: 0.2em;'>Active Systems</div>
+            <div style='font-size: 2.2em; font-weight: 700; color: #1e293b; letter-spacing: -0.01em; margin-bottom: 0.2em;'>1,247</div>
+            <div style='position: absolute; right: 1.2em; top: 50%; transform: translateY(-50%); display: flex; align-items: center; justify-content: center;'>
+                <span style="background: #f3f6fa; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="6" rx="2"/><rect x="2" y="14" width="20" height="6" rx="2"/><path d="M6 7h.01M6 17h.01"/></svg>
+                </span>
+            </div>
+            <div style='margin-top: 1.1em;'>
+                <div style='font-size: 1em; color: #22c55e; font-weight: 700; display: flex; align-items: center; gap: 0.2em;'>
+                    <svg width="13" height="13" fill="none" stroke="#22c55e" stroke-width="2" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                    +3.2%
+                </div>
+                <div style='font-size: 0.98em; color: #64748b; font-weight: 500;'>being monitored</div>
+            </div>
+        </div>
+        """)
+        gr.HTML("""
+        <div style='background: #fff; border-radius: 14px; box-shadow: 0 2px 8px #e0e7ef; padding: 1.7em 2.1em 1.2em 2em; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; position: relative;'>
+            <div style='color: #1e293b; font-size: 1.13em; font-weight: 700; margin-bottom: 0.2em;'>Compatibility Score</div>
+            <div style='font-size: 2.2em; font-weight: 700; color: #1e293b; letter-spacing: -0.01em; margin-bottom: 0.2em;'>94.2%</div>
+            <div style='position: absolute; right: 1.2em; top: 50%; transform: translateY(-50%); display: flex; align-items: center; justify-content: center;'>
+                <span style="background: #f3f6fa; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.66 3.58 3 8 3s8-1.34 8-3V6"/><path d="M4 12v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"/></svg>
+                </span>
+            </div>
+            <div style='margin-top: 1.1em;'>
+                <div style='font-size: 1em; color: #22c55e; font-weight: 700; display: flex; align-items: center; gap: 0.2em;'>
+                    <svg width="13" height="13" fill="none" stroke="#22c55e" stroke-width="2" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                    +2.1%
+                </div>
+                <div style='font-size: 0.98em; color: #64748b; font-weight: 500;'>average score</div>
+            </div>
+        </div>
+        """)
+        gr.HTML("""
+        <div style='background: #fff; border-radius: 14px; box-shadow: 0 2px 8px #e0e7ef; padding: 1.7em 2.1em 1.2em 2em; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; position: relative;'>
+            <div style='color: #1e293b; font-size: 1.13em; font-weight: 700; margin-bottom: 0.2em;'>Response Time</div>
+            <div style='font-size: 2.2em; font-weight: 700; color: #1e293b; letter-spacing: -0.01em; margin-bottom: 0.2em;'>1.2s</div>
+            <div style='position: absolute; right: 1.2em; top: 50%; transform: translateY(-50%); display: flex; align-items: center; justify-content: center;'>
+                <span style="background: #f3f6fa; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </span>
+            </div>
+            <div style='margin-top: 1.1em;'>
+                <div style='font-size: 1em; color: #ef4444; font-weight: 700; display: flex; align-items: center; gap: 0.2em;'>
+                    <svg width="13" height="13" fill="none" stroke="#ef4444" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+                    -8.3%
+                </div>
+                <div style='font-size: 0.98em; color: #64748b; font-weight: 500;'>average response</div>
+            </div>
+        </div>
+        """)
     with gr.Row():
         with gr.Column(scale=1):
             gr.HTML("""
