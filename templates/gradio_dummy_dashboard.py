@@ -194,7 +194,7 @@ with gr.Blocks(theme=gr.themes.Soft(), css=custom_css) as demo:
                                     <span style='color: #1e293b; font-weight: 700;'>System Compatibility Assistant</span>
                                 </div>
                                 <div style='background: #f6f8fa; color: #1e293b; border-radius: 8px; padding: 0.7em 0.9em; width: 96%; box-shadow: 0 1px 4px #e0e7ef; font-size: 0.97em; margin-bottom: 1em;'>Hello! I'm your System Compatibility Assistant. I can help you with questions about operating systems, databases, and web servers. What would you like to know?</div>
-                                <div style='color: #b6c2d6; font-size: 0.93em; margin-top: 0.1em;'>02:42 PM</div>
+                                <div style='color: #b6c2d6; font-size: 0.93em; margin-top: 0.1em;' id='chat-timestamp'></div>
                             </div>
                         </div>
                         <!-- Input Row -->
@@ -208,6 +208,21 @@ with gr.Blocks(theme=gr.themes.Soft(), css=custom_css) as demo:
                 </div>
             </div>
             <script>
+            // Set the chat timestamp to the current time on page load
+            function formatAMPM(date) {
+              let hours = date.getHours();
+              let minutes = date.getMinutes();
+              const ampm = hours >= 12 ? 'PM' : 'AM';
+              hours = hours % 12;
+              hours = hours ? hours : 12; // the hour '0' should be '12'
+              minutes = minutes < 10 ? '0'+minutes : minutes;
+              const strTime = hours + ':' + minutes + ' ' + ampm;
+              return strTime;
+            }
+            document.addEventListener('DOMContentLoaded', function() {
+              const ts = document.getElementById('chat-timestamp');
+              if (ts) ts.textContent = formatAMPM(new Date());
+            });
             // Dummy chat logic for demo (no bubbles, just input clear)
             const chatForm = document.getElementById('chat-form');
             const chatInput = document.getElementById('chat-input');
@@ -220,14 +235,96 @@ with gr.Blocks(theme=gr.themes.Soft(), css=custom_css) as demo:
 
     gr.Markdown("---")
     gr.Markdown("""
-    <div style='font-size:2em;font-weight:bold;text-align:center;margin-bottom:0.2em;color:#1e293b;'>System Compatibility Assistant</div>
-    <div style='text-align:center;color:#64748b;margin-bottom:2em;'>Enterprise-grade system compatibility analysis and recommendations</div>
-    """)
-    with gr.Row():
-        gr.Markdown("""<div class='stat-card'><div class='stat-value'>12,847</div><div class='stat-label'>Total Queries</div></div>""")
-        gr.Markdown("""<div class='stat-card'><div class='stat-value'>1,247</div><div class='stat-label'>Active Systems</div></div>""")
-        gr.Markdown("""<div class='stat-card'><div class='stat-value'>94.2%</div><div class='stat-label'>Compatibility Score</div></div>""")
-        gr.Markdown("""<div class='stat-card'><div class='stat-value'>1.2s</div><div class='stat-label'>Response Time</div></div>""")
+<div style='background: #f8f9fb; min-height: 100vh; width: 100%; position: relative;'>
+  <div style='max-width: 1200px; margin: 0 auto; padding: 0 32px;'>
+    <div style='padding-top: 2.7em;'></div>
+    <div style='font-size: 2.3em; font-weight: 700; margin-bottom: 0.18em; text-align: center; color: #1e293b;'>System Compatibility Assistant</div>
+    <div style='color: #64748b; font-size: 1.15em; margin-bottom: 2.1em; text-align: center;'>Enterprise-grade system compatibility analysis and recommendations</div>
+    <div style='display: flex; justify-content: space-between; gap: 1.3em; flex-wrap: nowrap;'>
+      <!-- Card 1 -->
+      <div style='background: #fff; border-radius: 14px; box-shadow: 0 2px 8px #e0e7ef; padding: 1.7em 2.1em 1.2em 2em; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; position: relative;'>
+        <div style='color: #1e293b; font-size: 1.13em; font-weight: 700; margin-bottom: 0.2em;'>Total Queries</div>
+        <div style='font-size: 2.2em; font-weight: 700; color: #1e293b; letter-spacing: -0.01em; margin-bottom: 0.2em;'>12,847</div>
+        <div style='position: absolute; right: 1.2em; top: 50%; transform: translateY(-50%); display: flex; align-items: center; justify-content: center;'>
+          <span style="background: #f3f6fa; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
+            <!-- Activity Icon (darker, 32px, perfectly centered) -->
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </span>
+        </div>
+        <div style='margin-top: 1.1em;'>
+          <div style='font-size: 1em; color: #22c55e; font-weight: 700; display: flex; align-items: center; gap: 0.2em;'>
+            <svg width="13" height="13" fill="none" stroke="#22c55e" stroke-width="2" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+            +12.5%
+          </div>
+          <div style='font-size: 0.98em; color: #64748b; font-weight: 500;'>vs last month</div>
+        </div>
+      </div>
+      <!-- Card 2 -->
+      <div style='background: #fff; border-radius: 14px; box-shadow: 0 2px 8px #e0e7ef; padding: 1.7em 2.1em 1.2em 2em; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; position: relative;'>
+        <div style='color: #1e293b; font-size: 1.13em; font-weight: 700; margin-bottom: 0.2em;'>Active Systems</div>
+        <div style='font-size: 2.2em; font-weight: 700; color: #1e293b; letter-spacing: -0.01em; margin-bottom: 0.2em;'>1,247</div>
+        <div style='position: absolute; right: 1.2em; top: 50%; transform: translateY(-50%); display: flex; align-items: center; justify-content: center;'>
+          <span style="background: #f3f6fa; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
+            <!-- Server Icon (darker, 32px, perfectly centered, with more space between rectangles) -->
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="4" width="20" height="6" rx="2"/>
+              <rect x="2" y="14" width="20" height="6" rx="2"/>
+              <path d="M6 7h.01M6 17h.01"/>
+            </svg>
+          </span>
+        </div>
+        <div style='margin-top: 1.1em;'>
+          <div style='font-size: 1em; color: #22c55e; font-weight: 700; display: flex; align-items: center; gap: 0.2em;'>
+            <svg width="13" height="13" fill="none" stroke="#22c55e" stroke-width="2" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+            +3.2%
+          </div>
+          <div style='font-size: 0.98em; color: #64748b; font-weight: 500;'>being monitored</div>
+        </div>
+      </div>
+      <!-- Card 3 -->
+      <div style='background: #fff; border-radius: 14px; box-shadow: 0 2px 8px #e0e7ef; padding: 1.7em 2.1em 1.2em 2em; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; position: relative;'>
+        <div style='color: #1e293b; font-size: 1.13em; font-weight: 700; margin-bottom: 0.2em;'>Compatibility Score</div>
+        <div style='font-size: 2.2em; font-weight: 700; color: #1e293b; letter-spacing: -0.01em; margin-bottom: 0.2em;'>94.2%</div>
+        <div style='position: absolute; right: 1.2em; top: 50%; transform: translateY(-50%); display: flex; align-items: center; justify-content: center;'>
+          <span style="background: #f3f6fa; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
+            <!-- Classic Database Icon (darker, 32px, perfectly centered) -->
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <ellipse cx="12" cy="6" rx="8" ry="3"/>
+              <path d="M4 6v6c0 1.66 3.58 3 8 3s8-1.34 8-3V6"/>
+              <path d="M4 12v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"/>
+            </svg>
+          </span>
+        </div>
+        <div style='margin-top: 1.1em;'>
+          <div style='font-size: 1em; color: #22c55e; font-weight: 700; display: flex; align-items: center; gap: 0.2em;'>
+            <svg width="13" height="13" fill="none" stroke="#22c55e" stroke-width="2" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+            +2.1%
+          </div>
+          <div style='font-size: 0.98em; color: #64748b; font-weight: 500;'>average score</div>
+        </div>
+      </div>
+      <!-- Card 4 -->
+      <div style='background: #fff; border-radius: 14px; box-shadow: 0 2px 8px #e0e7ef; padding: 1.7em 2.1em 1.2em 2em; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; position: relative;'>
+        <div style='color: #1e293b; font-size: 1.13em; font-weight: 700; margin-bottom: 0.2em;'>Response Time</div>
+        <div style='font-size: 2.2em; font-weight: 700; color: #1e293b; letter-spacing: -0.01em; margin-bottom: 0.2em;'>1.2s</div>
+        <div style='position: absolute; right: 1.2em; top: 50%; transform: translateY(-50%); display: flex; align-items: center; justify-content: center;'>
+          <span style="background: #f3f6fa; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
+            <!-- Clock Icon (darker, 32px, perfectly centered) -->
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </span>
+        </div>
+        <div style='margin-top: 1.1em;'>
+          <div style='font-size: 1em; color: #ef4444; font-weight: 700; display: flex; align-items: center; gap: 0.2em;'>
+            <svg width="13" height="13" fill="none" stroke="#ef4444" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+            -8.3%
+          </div>
+          <div style='font-size: 0.98em; color: #64748b; font-weight: 500;'>average response</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+""")
     with gr.Row():
         gr.Plot(plot_query_trends, label="Query Volume Trends")
         gr.Plot(plot_os_compat, label="OS Compatibility Rates")
