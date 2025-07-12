@@ -208,6 +208,235 @@ async def analytics_os():
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+@app.get("/api/options/databases")
+async def get_db_options():
+    """Get available database options for dropdown from actual data."""
+    try:
+        import pandas as pd
+        import os
+        import json
+        
+        # Try to extract database options from the data files
+        databases = []
+        
+        # First, try to get from compatibility analysis JSON
+        analysis_file = 'data/processed/compatibility_analysis.json'
+        if os.path.exists(analysis_file):
+            try:
+                with open(analysis_file, 'r') as f:
+                    analysis_data = json.load(f)
+                
+                # Extract database models from the analysis data
+                for server in analysis_data.get('servers', []):
+                    server_info = server.get('server_info', {})
+                    model = server_info.get('model', '')
+                    product_type = server_info.get('product_type', '')
+                    
+                    if model and any(db_keyword in model.upper() for db_keyword in ['MYSQL', 'POSTGRES', 'ORACLE', 'SQL SERVER', 'MONGODB', 'REDIS']):
+                        databases.append(model)
+                    
+                    if product_type and any(db_keyword in product_type.upper() for db_keyword in ['DATABASE', 'DB']):
+                        databases.append(product_type)
+                        
+            except Exception as e:
+                print(f"Error reading compatibility analysis: {e}")
+        
+        # Check if we have processed data files
+        data_files = [
+            'data/processed/Webserver_OS_Mapping.csv',
+            'data/processed/Change_History.csv',
+            'data/raw/sor_hist.csv'
+        ]
+        
+        for file_path in data_files:
+            if os.path.exists(file_path):
+                try:
+                    df = pd.read_csv(file_path)
+                    
+                    # Look for database-related columns
+                    db_columns = [col for col in df.columns if any(keyword in col.upper() for keyword in ['DATABASE', 'DB', 'SQL', 'MYSQL', 'POSTGRES', 'ORACLE'])]
+                    
+                    for col in db_columns:
+                        unique_values = df[col].dropna().unique()
+                        for value in unique_values:
+                            if isinstance(value, str) and len(value.strip()) > 0:
+                                # Clean and standardize database names
+                                cleaned_value = value.strip()
+                                if any(db_keyword in cleaned_value.upper() for db_keyword in ['MYSQL', 'POSTGRES', 'ORACLE', 'SQL SERVER', 'MONGODB', 'REDIS']):
+                                    databases.append(cleaned_value)
+                    
+                except Exception as e:
+                    print(f"Error reading {file_path}: {e}")
+                    continue
+        
+        # Remove duplicates and sort
+        databases = sorted(list(set(databases)))
+        
+        # If no databases found in data, fall back to common ones
+        if not databases:
+            databases = [
+                'MySQL 5.7', 'MySQL 8.0', 'PostgreSQL 13', 'PostgreSQL 14', 'PostgreSQL 15',
+                'Oracle Database 19c', 'Oracle Database 21c', 'Microsoft SQL Server 2019',
+                'Microsoft SQL Server 2022', 'MongoDB 5.0', 'MongoDB 6.0', 'Redis 6', 'Redis 7'
+            ]
+        
+        return {"databases": databases}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/api/options/operating-systems")
+async def get_osi_options():
+    """Get available operating system options for dropdown from actual data."""
+    try:
+        import pandas as pd
+        import os
+        import json
+        
+        # Try to extract OS options from the data files
+        operating_systems = []
+        
+        # First, try to get from compatibility analysis JSON
+        analysis_file = 'data/processed/compatibility_analysis.json'
+        if os.path.exists(analysis_file):
+            try:
+                with open(analysis_file, 'r') as f:
+                    analysis_data = json.load(f)
+                
+                # Extract OS models from the analysis data
+                for server in analysis_data.get('servers', []):
+                    server_info = server.get('server_info', {})
+                    model = server_info.get('model', '')
+                    product_type = server_info.get('product_type', '')
+                    
+                    if model and any(os_keyword in model.upper() for os_keyword in ['WINDOWS', 'LINUX', 'UBUNTU', 'RED HAT', 'CENTOS', 'MACOS', 'SERVER']):
+                        operating_systems.append(model)
+                    
+                    if product_type and any(os_keyword in product_type.upper() for os_keyword in ['OPERATING', 'SYSTEM', 'OS']):
+                        operating_systems.append(product_type)
+                        
+            except Exception as e:
+                print(f"Error reading compatibility analysis: {e}")
+        
+        # Check if we have processed data files
+        data_files = [
+            'data/processed/Webserver_OS_Mapping.csv',
+            'data/processed/Change_History.csv',
+            'data/raw/sor_hist.csv',
+            'data/raw/PCat.csv'
+        ]
+        
+        for file_path in data_files:
+            if os.path.exists(file_path):
+                try:
+                    df = pd.read_csv(file_path)
+                    
+                    # Look for OS-related columns
+                    os_columns = [col for col in df.columns if any(keyword in col.upper() for keyword in ['OS', 'OPERATING', 'SYSTEM', 'MODEL'])]
+                    
+                    for col in os_columns:
+                        unique_values = df[col].dropna().unique()
+                        for value in unique_values:
+                            if isinstance(value, str) and len(value.strip()) > 0:
+                                # Clean and standardize OS names
+                                cleaned_value = value.strip()
+                                if any(os_keyword in cleaned_value.upper() for os_keyword in ['WINDOWS', 'LINUX', 'UBUNTU', 'RED HAT', 'CENTOS', 'MACOS', 'SERVER']):
+                                    operating_systems.append(cleaned_value)
+                    
+                except Exception as e:
+                    print(f"Error reading {file_path}: {e}")
+                    continue
+        
+        # Remove duplicates and sort
+        operating_systems = sorted(list(set(operating_systems)))
+        
+        # If no OS found in data, fall back to common ones
+        if not operating_systems:
+            operating_systems = [
+                'Windows 10', 'Windows 11', 'Windows Server 2019', 'Windows Server 2022',
+                'Ubuntu 20.04 LTS', 'Ubuntu 22.04 LTS', 'Red Hat Enterprise Linux 8',
+                'Red Hat Enterprise Linux 9', 'CentOS 7', 'CentOS 8',
+                'macOS Monterey', 'macOS Ventura', 'macOS Sonoma'
+            ]
+        
+        return {"operating_systems": operating_systems}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/api/options/web-servers")
+async def get_web_server_options():
+    """Get available web server options for dropdown from actual data."""
+    try:
+        import pandas as pd
+        import os
+        import json
+        
+        # Try to extract web server options from the data files
+        web_servers = []
+        
+        # First, try to get from compatibility analysis JSON
+        analysis_file = 'data/processed/compatibility_analysis.json'
+        if os.path.exists(analysis_file):
+            try:
+                with open(analysis_file, 'r') as f:
+                    analysis_data = json.load(f)
+                
+                # Extract web server models from the analysis data
+                for server in analysis_data.get('servers', []):
+                    server_info = server.get('server_info', {})
+                    model = server_info.get('model', '')
+                    product_type = server_info.get('product_type', '')
+                    
+                    if model and any(ws_keyword in model.upper() for ws_keyword in ['APACHE', 'NGINX', 'IIS', 'TOMCAT', 'HTTP', 'WEB']):
+                        web_servers.append(model)
+                    
+                    if product_type and any(ws_keyword in product_type.upper() for ws_keyword in ['WEB', 'HTTP', 'SERVER']):
+                        web_servers.append(product_type)
+                        
+            except Exception as e:
+                print(f"Error reading compatibility analysis: {e}")
+        
+        # Check if we have processed data files
+        data_files = [
+            'data/processed/Webserver_OS_Mapping.csv',
+            'data/raw/WebServer.csv',
+            'data/processed/Change_History.csv'
+        ]
+        
+        for file_path in data_files:
+            if os.path.exists(file_path):
+                try:
+                    df = pd.read_csv(file_path)
+                    
+                    # Look for web server-related columns
+                    ws_columns = [col for col in df.columns if any(keyword in col.upper() for keyword in ['SERVER', 'WEB', 'HTTP', 'APACHE', 'NGINX', 'IIS', 'TOMCAT', 'MODEL', 'PRODUCTTYPE'])]
+                    
+                    for col in ws_columns:
+                        unique_values = df[col].dropna().unique()
+                        for value in unique_values:
+                            if isinstance(value, str) and len(value.strip()) > 0:
+                                # Clean and standardize web server names
+                                cleaned_value = value.strip()
+                                if any(ws_keyword in cleaned_value.upper() for ws_keyword in ['APACHE', 'NGINX', 'IIS', 'TOMCAT', 'HTTP', 'WEB']):
+                                    web_servers.append(cleaned_value)
+                    
+                except Exception as e:
+                    print(f"Error reading {file_path}: {e}")
+                    continue
+        
+        # Remove duplicates and sort
+        web_servers = sorted(list(set(web_servers)))
+        
+        # If no web servers found in data, fall back to common ones
+        if not web_servers:
+            web_servers = [
+                'Apache HTTP Server 2.4', 'Nginx 1.20', 'Nginx 1.22', 'Microsoft IIS 10',
+                'Tomcat 9', 'Tomcat 10', 'Node.js 16', 'Node.js 18', 'Node.js 20'
+            ]
+        
+        return {"web_servers": web_servers}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 @app.get("/api/analytics/recent")
 async def analytics_recent():
     try:
