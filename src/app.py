@@ -14,7 +14,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.rag.determine_recs import CheckCompatibility
 from src.evaluation.feedback_system import FeedbackLogger, run_feedback_loop
-from src.data_processing.analyze_compatibility import CompatibilityAnalyzer
+from src.data_processing.analyze_compatibility import CompatibilityAnalyzer, get_db_options, get_osi_options
 
 check_compat = CheckCompatibility()
 feedback_logger = FeedbackLogger()
@@ -30,11 +30,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Serve static files (React build)
-frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'templates', 'frontend', 'dist'))
-if os.path.exists(frontend_dist):
-    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
 
 # --- Analytics Helper Functions ---
 def get_analytics_df():
@@ -209,156 +204,18 @@ async def analytics_os():
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/options/databases")
-async def get_db_options():
-    """Get available database options for dropdown from actual data."""
+async def get_db_options_endpoint():
+    """Get available database options for dropdown from analyze_compatibility.py."""
     try:
-        import pandas as pd
-        import os
-        import json
-        
-        # Try to extract database options from the data files
-        databases = []
-        
-        # First, try to get from compatibility analysis JSON
-        analysis_file = 'data/processed/compatibility_analysis.json'
-        if os.path.exists(analysis_file):
-            try:
-                with open(analysis_file, 'r') as f:
-                    analysis_data = json.load(f)
-                
-                # Extract database models from the analysis data
-                for server in analysis_data.get('servers', []):
-                    server_info = server.get('server_info', {})
-                    model = server_info.get('model', '')
-                    product_type = server_info.get('product_type', '')
-                    
-                    if model and any(db_keyword in model.upper() for db_keyword in ['MYSQL', 'POSTGRES', 'ORACLE', 'SQL SERVER', 'MONGODB', 'REDIS']):
-                        databases.append(model)
-                    
-                    if product_type and any(db_keyword in product_type.upper() for db_keyword in ['DATABASE', 'DB']):
-                        databases.append(product_type)
-                        
-            except Exception as e:
-                print(f"Error reading compatibility analysis: {e}")
-        
-        # Check if we have processed data files
-        data_files = [
-            'data/processed/Webserver_OS_Mapping.csv',
-            'data/processed/Change_History.csv',
-            'data/raw/sor_hist.csv'
-        ]
-        
-        for file_path in data_files:
-            if os.path.exists(file_path):
-                try:
-                    df = pd.read_csv(file_path)
-                    
-                    # Look for database-related columns
-                    db_columns = [col for col in df.columns if any(keyword in col.upper() for keyword in ['DATABASE', 'DB', 'SQL', 'MYSQL', 'POSTGRES', 'ORACLE'])]
-                    
-                    for col in db_columns:
-                        unique_values = df[col].dropna().unique()
-                        for value in unique_values:
-                            if isinstance(value, str) and len(value.strip()) > 0:
-                                # Clean and standardize database names
-                                cleaned_value = value.strip()
-                                if any(db_keyword in cleaned_value.upper() for db_keyword in ['MYSQL', 'POSTGRES', 'ORACLE', 'SQL SERVER', 'MONGODB', 'REDIS']):
-                                    databases.append(cleaned_value)
-                    
-                except Exception as e:
-                    print(f"Error reading {file_path}: {e}")
-                    continue
-        
-        # Remove duplicates and sort
-        databases = sorted(list(set(databases)))
-        
-        # If no databases found in data, fall back to common ones
-        if not databases:
-            databases = [
-                'MySQL 5.7', 'MySQL 8.0', 'PostgreSQL 13', 'PostgreSQL 14', 'PostgreSQL 15',
-                'Oracle Database 19c', 'Oracle Database 21c', 'Microsoft SQL Server 2019',
-                'Microsoft SQL Server 2022', 'MongoDB 5.0', 'MongoDB 6.0', 'Redis 6', 'Redis 7'
-            ]
-        
-        return {"databases": databases}
+        return {"databases": get_db_options()}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/options/operating-systems")
-async def get_osi_options():
-    """Get available operating system options for dropdown from actual data."""
+async def get_osi_options_endpoint():
+    """Get available operating system options for dropdown from analyze_compatibility.py."""
     try:
-        import pandas as pd
-        import os
-        import json
-        
-        # Try to extract OS options from the data files
-        operating_systems = []
-        
-        # First, try to get from compatibility analysis JSON
-        analysis_file = 'data/processed/compatibility_analysis.json'
-        if os.path.exists(analysis_file):
-            try:
-                with open(analysis_file, 'r') as f:
-                    analysis_data = json.load(f)
-                
-                # Extract OS models from the analysis data
-                for server in analysis_data.get('servers', []):
-                    server_info = server.get('server_info', {})
-                    model = server_info.get('model', '')
-                    product_type = server_info.get('product_type', '')
-                    
-                    if model and any(os_keyword in model.upper() for os_keyword in ['WINDOWS', 'LINUX', 'UBUNTU', 'RED HAT', 'CENTOS', 'MACOS', 'SERVER']):
-                        operating_systems.append(model)
-                    
-                    if product_type and any(os_keyword in product_type.upper() for os_keyword in ['OPERATING', 'SYSTEM', 'OS']):
-                        operating_systems.append(product_type)
-                        
-            except Exception as e:
-                print(f"Error reading compatibility analysis: {e}")
-        
-        # Check if we have processed data files
-        data_files = [
-            'data/processed/Webserver_OS_Mapping.csv',
-            'data/processed/Change_History.csv',
-            'data/raw/sor_hist.csv',
-            'data/raw/PCat.csv'
-        ]
-        
-        for file_path in data_files:
-            if os.path.exists(file_path):
-                try:
-                    df = pd.read_csv(file_path)
-                    
-                    # Look for OS-related columns
-                    os_columns = [col for col in df.columns if any(keyword in col.upper() for keyword in ['OS', 'OPERATING', 'SYSTEM', 'MODEL'])]
-                    
-                    for col in os_columns:
-                        unique_values = df[col].dropna().unique()
-                        for value in unique_values:
-                            if isinstance(value, str) and len(value.strip()) > 0:
-                                # Clean and standardize OS names
-                                cleaned_value = value.strip()
-                                if any(os_keyword in cleaned_value.upper() for os_keyword in ['WINDOWS', 'LINUX', 'UBUNTU', 'RED HAT', 'CENTOS', 'MACOS', 'SERVER']):
-                                    operating_systems.append(cleaned_value)
-                    
-                except Exception as e:
-                    print(f"Error reading {file_path}: {e}")
-                    continue
-        
-        # Remove duplicates and sort
-        operating_systems = sorted(list(set(operating_systems)))
-        
-        # If no OS found in data, fall back to common ones
-        if not operating_systems:
-            operating_systems = [
-                'Windows 10', 'Windows 11', 'Windows Server 2019', 'Windows Server 2022',
-                'Ubuntu 20.04 LTS', 'Ubuntu 22.04 LTS', 'Red Hat Enterprise Linux 8',
-                'Red Hat Enterprise Linux 9', 'CentOS 7', 'CentOS 8',
-                'macOS Monterey', 'macOS Ventura', 'macOS Sonoma'
-            ]
-        
-        return {"operating_systems": operating_systems}
+        return {"operating_systems": get_osi_options()}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
@@ -443,15 +300,6 @@ async def analytics_recent():
         return {"recent_feedback": get_recent_feedback()}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
-
-# Fallback: serve index.html for any other route (for React Router)
-if os.path.exists(frontend_dist):
-    @app.get("/{full_path:path}")
-    async def serve_react_app(full_path: str):
-        index_path = os.path.join(frontend_dist, "index.html")
-        if os.path.exists(index_path):
-            return FileResponse(index_path)
-        return JSONResponse(status_code=404, content={"error": "Not found"})
 
 if __name__ == "__main__":
     uvicorn.run("src.app:app", host="0.0.0.0", port=8000, reload=True) 
