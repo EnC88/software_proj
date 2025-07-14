@@ -3,8 +3,9 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, MessageCircle, Database, Server, Monitor, History, Settings } from 'lucide-react';
+import { MessageCircle, Send, History, Settings, Monitor, Database, Server } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useUserConfig } from '@/hooks/useUserConfig';
 
 interface Message {
   id: string;
@@ -23,6 +24,7 @@ interface ChatSession {
 }
 
 const Chat = () => {
+  const { shouldIncludeInChat, getPersonalizedContext, getActiveConfig } = useUserConfig();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -34,6 +36,7 @@ const Chat = () => {
   ]);
   const [inputValue, setInputValue] = useState('');
   const [showHistory, setShowHistory] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // Mock chat history
   const chatHistory: ChatSession[] = [
@@ -81,7 +84,7 @@ const Chat = () => {
     }
   ];
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
 
     const userMessage: Message = {
@@ -89,20 +92,109 @@ const Chat = () => {
       text: inputValue,
       isUser: true,
       timestamp: new Date(),
+      category: 'general' // Let backend handle categorization
     };
 
     setMessages(prev => [...prev, userMessage]);
+    setIsAnalyzing(true);
 
-    setTimeout(() => {
+    // Get active user configuration
+    const activeConfig = getActiveConfig();
+    
+    // Prepare parameters for backend API
+    const apiParams = {
+      request: inputValue,
+      os: activeConfig.operatingSystem || null,
+      database: activeConfig.database || null,
+      webServers: activeConfig.webServers || [],
+      environment: null // Could be added to user config if needed
+    };
+
+    try {
+      // Send to backend API for analysis
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(apiParams),
+      });
+
+      if (response.ok) {
+        const analysisResult = await response.json();
+        
+        // Use the backend's actual analysis results
+        let aiResponseText = "I couldn't analyze that request. Please try asking about software compatibility.";
+        
+        if (analysisResult.results && analysisResult.results.length > 0) {
+          const result = analysisResult.results[0];
+          
+          if (result.is_compatible !== undefined) {
+            const status = result.is_compatible ? "✅ Compatible" : "❌ Not Compatible";
+            const confidencePercent = Math.round((result.confidence || 0) * 100);
+            
+            aiResponseText = `## Analysis Result\n\n**Status:** ${status}\n**Confidence:** ${confidencePercent}%\n**Request:** ${result.request}`;
+            
+            // Add affected servers info
+            if (result.affected_servers && result.affected_servers.length > 0) {
+              aiResponseText += `\n\n**Affected Servers:** ${result.affected_servers.length} server(s) found`;
+            }
+            
+            // Add conflicts
+            if (result.conflicts && result.conflicts.length > 0) {
+              aiResponseText += `\n\n**❌ Conflicts Found:**\n${result.conflicts.map(conflict => `• ${conflict}`).join('\n')}`;
+            }
+            
+            // Add warnings
+            if (result.warnings && result.warnings.length > 0) {
+              aiResponseText += `\n\n**⚠️ Warnings:**\n${result.warnings.map(warning => `• ${warning}`).join('\n')}`;
+            }
+            
+            // Add recommendations
+            if (result.recommendations && result.recommendations.length > 0) {
+              aiResponseText += `\n\n**💡 Recommendations:**\n${result.recommendations.map(rec => `• ${rec}`).join('\n')}`;
+            }
+            
+            // Add alternative versions
+            if (result.alternative_versions && result.alternative_versions.length > 0) {
+              aiResponseText += `\n\n**🔄 Alternative Versions:**\n${result.alternative_versions.map(version => `• ${version}`).join('\n')}`;
+            }
+          }
+        }
+        
+        const aiResponse: Message = {
+          id: (Date.now() + 1).toString(),
+          text: aiResponseText,
+          isUser: false,
+          timestamp: new Date(),
+          category: 'general'
+        };
+        setMessages(prev => [...prev, aiResponse]);
+      } else {
+        // Fallback if API fails
+        const aiResponse: Message = {
+          id: (Date.now() + 1).toString(),
+          text: "Sorry, I couldn't process your request. Please try again.",
+          isUser: false,
+          timestamp: new Date(),
+          category: 'general'
+        };
+        setMessages(prev => [...prev, aiResponse]);
+      }
+    } catch (error) {
+      console.error('Error calling analysis API:', error);
+      // Fallback on error
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
-        text: `I understand your question about "${inputValue}". Based on your system configuration, here's what I recommend...`,
+        text: "Sorry, I encountered an error. Please try again.",
         isUser: false,
         timestamp: new Date(),
         category: 'general'
       };
       setMessages(prev => [...prev, aiResponse]);
-    }, 1000);
+    } finally {
+      setIsAnalyzing(false);
+    }
 
     setInputValue('');
   };
@@ -112,6 +204,7 @@ const Chat = () => {
       case 'os': return <Monitor className="w-3 h-3" />;
       case 'database': return <Database className="w-3 h-3" />;
       case 'webserver': return <Server className="w-3 h-3" />;
+      case 'general': return <MessageCircle className="w-3 h-3" />;
       default: return <MessageCircle className="w-3 h-3" />;
     }
   };
@@ -121,6 +214,7 @@ const Chat = () => {
       case 'os': return 'bg-blue-100 text-blue-700';
       case 'database': return 'bg-green-100 text-green-700';
       case 'webserver': return 'bg-orange-100 text-orange-700';
+      case 'general': return 'bg-gray-100 text-gray-700';
       default: return 'bg-gray-100 text-gray-700';
     }
   };
@@ -247,10 +341,17 @@ const Chat = () => {
             />
             <Button 
               onClick={handleSendMessage} 
-              disabled={!inputValue.trim()}
+              disabled={!inputValue.trim() || isAnalyzing}
               className="bg-slate-800 hover:bg-slate-700 text-white px-6"
             >
-              <Send className="w-4 h-4" />
+              {isAnalyzing ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Analyzing...
+                </div>
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
             </Button>
           </div>
         </div>

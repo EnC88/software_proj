@@ -6,35 +6,20 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Computer, Database, Server, User, ChevronDown, Save, Loader2 } from 'lucide-react';
-
-interface SystemConfig {
-  operatingSystem: string;
-  database: string;
-  webServers: string[];
-  useInChat: {
-    os: boolean;
-    database: boolean;
-    webServers: boolean;
-  };
-}
+import { Computer, Database, Server, User, ChevronDown, Save, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { API_ENDPOINTS, STORAGE_KEYS } from '@/lib/constants';
+import { useUserConfig } from '@/hooks/useUserConfig';
 
 const Profile = () => {
-  const [config, setConfig] = useState<SystemConfig>({
-    operatingSystem: '',
-    database: '',
-    webServers: [],
-    useInChat: {
-      os: true,
-      database: true,
-      webServers: true
-    }
-  });
-
+  const { toast } = useToast();
+  const { config, setConfig, loading: configLoading, saveConfig } = useUserConfig();
+  
   const [operatingSystems, setOperatingSystems] = useState<string[]>([]);
   const [databases, setDatabases] = useState<string[]>([]);
   const [webServers, setWebServers] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch options from API
@@ -46,9 +31,9 @@ const Profile = () => {
 
         // Fetch all options in parallel
         const [osResponse, dbResponse, wsResponse] = await Promise.all([
-          fetch('/api/options/operating-systems'),
-          fetch('/api/options/databases'),
-          fetch('/api/options/web-servers')
+          fetch(API_ENDPOINTS.OPERATING_SYSTEMS),
+          fetch(API_ENDPOINTS.DATABASES),
+          fetch(API_ENDPOINTS.WEB_SERVERS)
         ]);
 
         if (!osResponse.ok || !dbResponse.ok || !wsResponse.ok) {
@@ -101,12 +86,45 @@ const Profile = () => {
     }));
   };
 
-  const handleSave = () => {
-    // Save configuration logic here
-    console.log('Saving configuration:', config);
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      
+      // Use the saveConfig function from the hook
+      const success = await saveConfig(config);
+      
+      if (success) {
+        toast({
+          title: "Configuration Saved",
+          description: (
+            <span className="flex items-center gap-2">
+              <CheckCircle className="w-4 h-4" />
+              Your system preferences have been saved successfully.
+            </span>
+          ),
+        });
+      } else {
+        throw new Error('Failed to save configuration');
+      }
+      
+    } catch (err) {
+      console.error('Error saving configuration:', err);
+      toast({
+        title: "Save Failed",
+        description: (
+          <span className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4" />
+            Failed to save configuration. Please try again.
+          </span>
+        ),
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  if (loading) {
+  if (loading || configLoading) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
         <div className="max-w-4xl mx-auto">
@@ -259,9 +277,13 @@ const Profile = () => {
                 </DropdownMenu>
               </div>
 
-              <Button onClick={handleSave} className="w-full bg-slate-800 hover:bg-slate-700">
-                <Save className="w-4 h-4 mr-2" />
-                Save Configuration
+              <Button onClick={handleSave} className="w-full bg-slate-800 hover:bg-slate-700" disabled={saving}>
+                {saving ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4 mr-2" />
+                )}
+                {saving ? "Saving..." : "Save Configuration"}
               </Button>
             </CardContent>
           </Card>

@@ -8,6 +8,8 @@ import uvicorn
 from typing import Dict, Any
 import pandas as pd
 from datetime import datetime, timedelta
+import sqlite3
+import json
 
 # Add project root to sys.path for imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -114,6 +116,33 @@ def get_recent_feedback():
         })
     return feedback_list
 
+# Initialize database
+def init_db():
+    """Initialize the SQLite database for user configurations."""
+    try:
+        conn = sqlite3.connect('user_configs.db')
+        cursor = conn.cursor()
+        
+        # Create user_configs table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS user_configs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT UNIQUE NOT NULL,
+                config_data TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        conn.commit()
+        conn.close()
+        print("Database initialized successfully")
+    except Exception as e:
+        print(f"Error initializing database: {e}")
+
+# Initialize database on startup
+init_db()
+
 # --- API Endpoints ---
 
 @app.post("/api/analyze")
@@ -121,13 +150,38 @@ async def analyze(request: Request):
     data = await request.json()
     request_text = data.get("request")
     user_os = data.get("os")
+    user_database = data.get("database")
+    user_web_servers = data.get("webServers", [])
+    user_environment = data.get("environment")
+    
     if not request_text:
         raise HTTPException(status_code=400, detail="Missing 'request' field.")
+    
+    # Log the user configuration being used
+    print(f"Analyzing with user config: OS={user_os}, DB={user_database}, WebServers={user_web_servers}")
+    
     change_requests = check_compat.parse_multiple_change_requests(request_text)
-    results = check_compat.analyze_multiple_compatibility(change_requests, target_os=user_os)
+    results = check_compat.analyze_multiple_compatibility(
+        change_requests, 
+        target_os=user_os,
+        user_database=user_database,
+        user_web_servers=user_web_servers
+    )
+    
     # Serialize results
     output = []
     for cr, result in results:
+        # Add user context to the result
+        user_context = {}
+        if user_os:
+            user_context["operating_system"] = user_os
+        if user_database:
+            user_context["database"] = user_database
+        if user_web_servers:
+            user_context["web_servers"] = user_web_servers
+        if user_environment:
+            user_context["environment"] = user_environment
+        
         output.append({
             "request": f"{cr.action.title()} {cr.software_name} {cr.version or ''}",
             "is_compatible": result.is_compatible,
@@ -137,7 +191,9 @@ async def analyze(request: Request):
             "warnings": result.warnings,
             "recommendations": result.recommendations,
             "alternative_versions": result.alternative_versions,
+            "user_context": user_context
         })
+    
     return {"results": output}
 
 @app.post("/api/feedback")
@@ -150,10 +206,29 @@ async def feedback(request: Request):
     query = data.get("query")
     results = data.get("results")
     user_os = data.get("os")
+    user_database = data.get("database")
+    user_web_servers = data.get("webServers", [])
+    user_environment = data.get("environment")
     session_id = data.get("session_id")
+    
     metadata = {"tags": tags}
     if correction and correction.strip():
         metadata["correction"] = correction.strip()
+    
+    # Add user configuration to metadata
+    user_config = {}
+    if user_os:
+        user_config["operating_system"] = user_os
+    if user_database:
+        user_config["database"] = user_database
+    if user_web_servers:
+        user_config["web_servers"] = user_web_servers
+    if user_environment:
+        user_config["environment"] = user_environment
+    
+    if user_config:
+        metadata["user_configuration"] = user_config
+    
     # Require correction for negative feedback
     if score == "no" or score == 0 or score == "👎 No":
         if not correction or not correction.strip():
@@ -163,6 +238,7 @@ async def feedback(request: Request):
         score_val = 1
     else:
         score_val = -1
+    
     try:
         success = feedback_logger.log(
             query=query,
@@ -220,7 +296,7 @@ async def get_osi_options_endpoint():
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/options/web-servers")
-async def get_web_server_options():
+async def get_web_server_options_endpoint():
     """Get available web server options for dropdown from actual data."""
     try:
         import pandas as pd
@@ -239,51 +315,36 @@ async def get_web_server_options():
                 
                 # Extract web server models from the analysis data
                 for server in analysis_data.get('servers', []):
-                    server_info = server.get('server_info', {})
-                    model = server_info.get('model', '')
-                    product_type = server_info.get('product_type', '')
-                    
-                    if model and any(ws_keyword in model.upper() for ws_keyword in ['APACHE', 'NGINX', 'IIS', 'TOMCAT', 'HTTP', 'WEB']):
-                        web_servers.append(model)
-                    
-                    if product_type and any(ws_keyword in product_type.upper() for ws_keyword in ['WEB', 'HTTP', 'SERVER']):
-                        web_servers.append(product_type)
-                        
+                    if 'web_server' in server:
+                        web_servers.append(server['web_server'])
             except Exception as e:
                 print(f"Error reading compatibility analysis: {e}")
         
-        # Check if we have processed data files
-        data_files = [
-            'data/processed/Webserver_OS_Mapping.csv',
-            'data/raw/WebServer.csv',
-            'data/processed/Change_History.csv'
-        ]
-        
-        for file_path in data_files:
-            if os.path.exists(file_path):
-                try:
-                    df = pd.read_csv(file_path)
-                    
-                    # Look for web server-related columns
-                    ws_columns = [col for col in df.columns if any(keyword in col.upper() for keyword in ['SERVER', 'WEB', 'HTTP', 'APACHE', 'NGINX', 'IIS', 'TOMCAT', 'MODEL', 'PRODUCTTYPE'])]
-                    
-                    for col in ws_columns:
-                        unique_values = df[col].dropna().unique()
-                        for value in unique_values:
-                            if isinstance(value, str) and len(value.strip()) > 0:
-                                # Clean and standardize web server names
-                                cleaned_value = value.strip()
-                                if any(ws_keyword in cleaned_value.upper() for ws_keyword in ['APACHE', 'NGINX', 'IIS', 'TOMCAT', 'HTTP', 'WEB']):
-                                    web_servers.append(cleaned_value)
-                    
-                except Exception as e:
-                    print(f"Error reading {file_path}: {e}")
-                    continue
+        # If no web servers found, try CSV files
+        if not web_servers:
+            data_files = [
+                'data/processed/Webserver_OS_Mapping.csv',
+                'data/raw/WebServer.csv'
+            ]
+            
+            for file_path in data_files:
+                if os.path.exists(file_path):
+                    try:
+                        df = pd.read_csv(file_path)
+                        
+                        # Look for web server related columns
+                        web_server_columns = [col for col in df.columns if any(keyword in col.lower() for keyword in ['webserver', 'web_server', 'server'])]
+                        
+                        for col in web_server_columns:
+                            unique_values = df[col].dropna().unique()
+                            web_servers.extend([str(val) for val in unique_values if val and str(val).strip()])
+                    except Exception as e:
+                        print(f"Error reading {file_path}: {e}")
         
         # Remove duplicates and sort
         web_servers = sorted(list(set(web_servers)))
         
-        # If no web servers found in data, fall back to common ones
+        # Fallback to hardcoded options if no data found
         if not web_servers:
             web_servers = [
                 'Apache HTTP Server 2.4', 'Nginx 1.20', 'Nginx 1.22', 'Microsoft IIS 10',
@@ -292,6 +353,87 @@ async def get_web_server_options():
         
         return {"web_servers": web_servers}
     except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.post("/api/user/config")
+async def save_user_config(config_data: dict):
+    """Save user configuration to database."""
+    try:
+        # For now, use a default user ID. In a real app, you'd get this from authentication
+        user_id = "default_user"
+        
+        # Validate required fields
+        required_fields = ['operatingSystem', 'database', 'webServers', 'useInChat']
+        
+        for field in required_fields:
+            if field not in config_data:
+                return JSONResponse(
+                    status_code=400, 
+                    content={"error": f"Missing required field: {field}"}
+                )
+        
+        # Save to database
+        conn = sqlite3.connect('user_configs.db')
+        cursor = conn.cursor()
+        
+        # Convert config to JSON string
+        config_json = json.dumps(config_data)
+        
+        # Insert or update user config
+        cursor.execute('''
+            INSERT OR REPLACE INTO user_configs (user_id, config_data, updated_at)
+            VALUES (?, ?, ?)
+        ''', (user_id, config_json, datetime.now().isoformat()))
+        
+        conn.commit()
+        conn.close()
+        
+        print(f"User configuration saved to database for user: {user_id}")
+        
+        return {"message": "Configuration saved successfully"}
+        
+    except Exception as e:
+        print(f"Error saving configuration to database: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/api/user/config")
+async def get_user_config():
+    """Get user configuration from database."""
+    try:
+        # For now, use a default user ID. In a real app, you'd get this from authentication
+        user_id = "default_user"
+        
+        conn = sqlite3.connect('user_configs.db')
+        cursor = conn.cursor()
+        
+        # Get user config from database
+        cursor.execute('''
+            SELECT config_data FROM user_configs 
+            WHERE user_id = ?
+        ''', (user_id,))
+        
+        result = cursor.fetchone()
+        conn.close()
+        
+        if result:
+            # Parse the JSON config data
+            config_data = json.loads(result[0])
+            return config_data
+        else:
+            # Return default config if no saved config found
+            return {
+                "operatingSystem": "",
+                "database": "",
+                "webServers": [],
+                "useInChat": {
+                    "os": True,
+                    "database": True,
+                    "webServers": True
+                }
+            }
+        
+    except Exception as e:
+        print(f"Error retrieving configuration from database: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/analytics/recent")

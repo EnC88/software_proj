@@ -194,12 +194,15 @@ class CheckCompatibility:
             raw_text=text
         )
     
-    def analyze_compatibility(self, change_request: ChangeRequest, target_os: Optional[str] = None) -> CompatibilityResult:
-        """Analyze compatibility of a change request, optionally filtering by target OS.
+    def analyze_compatibility(self, change_request: ChangeRequest, target_os: Optional[str] = None, 
+                            user_database: Optional[str] = None, user_web_servers: Optional[List[str]] = None) -> CompatibilityResult:
+        """Analyze compatibility of a change request, optionally filtering by user configuration.
         
         Args:
             change_request: Parsed change request
             target_os: Optional OS name to filter servers (e.g., "Windows", "Linux")
+            user_database: Optional user's database configuration
+            user_web_servers: Optional list of user's web server configurations
             
         Returns:
             CompatibilityResult with analysis
@@ -212,10 +215,13 @@ class CheckCompatibility:
         
         # --- Dynamically find dependencies using the RAG Query Engine ---
         software_to_show_families = [change_request.software_name.upper()]
+        rag_results = None
         try:
             dependency_query = f"What are the dependencies and compatible software for {change_request.software_name}?"
             rag_results = self.query_engine.query(dependency_query, top_k=3)
+            logger.info(f"RAG query returned {len(rag_results) if rag_results else 0} results")
             if rag_results:
+                logger.info(f"RAG similarity scores: {[r.get('similarity_score', 0.0) for r in rag_results]}")
                 context = self.query_engine.format_results_for_llm(rag_results)
                 # Parse context for other known software families (using the dynamic list)
                 import re
@@ -233,16 +239,26 @@ class CheckCompatibility:
         else:
             affected_servers = self.analysis.get('servers', [])
         
-        # --- Filter by Target OS if provided ---
-        if target_os:
-            original_server_count = len(affected_servers)
-            filtered_servers = []
-            for server in affected_servers:
+        logger.info(f"Total servers in analysis: {len(self.analysis.get('servers', []))}")
+        logger.info(f"Affected servers after environment filter: {len(affected_servers)}")
+        
+        # --- Filter by User Configuration if provided ---
+        original_server_count = len(affected_servers)
+        filtered_servers = []
+        
+        for server in affected_servers:
+            include_server = True
+            
+            # Filter by OS if provided
+            if target_os:
                 server_os = self._extract_os_from_server(server)
-                if server_os and target_os.lower() in server_os.lower():
-                    filtered_servers.append(server)
-            affected_servers = filtered_servers
-            logger.info(f"Filtered by OS '{target_os}'. Kept {len(affected_servers)} of {original_server_count} servers.")
+                if not server_os or target_os.lower() not in server_os.lower():
+                    include_server = False
+            
+            if include_server:
+                filtered_servers.append(server)
+        
+        affected_servers = filtered_servers
         
         # Check compatibility rules
         if change_request.software_name in self.rules.get('web_server_os', {}):
@@ -266,7 +282,7 @@ class CheckCompatibility:
                 if min_version or max_version:
                     for server in affected_servers:
                         server_os = self._extract_os_from_server(server)
-                        if server_os:
+                        if server_os and isinstance(server_os, str):
                             os_version = self._extract_version_from_os(server_os)
                             if os_version:
                                 if min_version and os_version < min_version:
@@ -298,12 +314,14 @@ class CheckCompatibility:
         
         # --- Find existing installations of target software and its dependencies ---
         existing_installations = []
+        logger.info(f"Looking for software families: {software_to_show_families}")
         for server in affected_servers:
             model_full = server.get('server_info', {}).get('model', 'Unknown')
             if model_full == 'Unknown':
                 continue
             
             env = server.get('environment', 'Unknown')
+            logger.debug(f"Checking server model: {model_full} in environment: {env}")
             
             # Extract product family (full name) and version
             import re
@@ -311,14 +329,18 @@ class CheckCompatibility:
             version = version_match.group(1) if version_match else "0.0"
             product_family = model_full[:version_match.start()].strip().upper() if version_match else model_full.upper()
             
+            logger.debug(f"Extracted product family: {product_family}, version: {version}")
+            
             # Check if this product family is one we want to show
             for family_to_show in software_to_show_families:
                 if family_to_show in product_family:
                     existing_installations.append((product_family, version, env))
+                    logger.info(f"Found matching installation: {product_family} {version} in {env}")
                     break
         
         # --- Aggregate and format recommendations ---
-        threshold = 50
+        threshold = 30  # Lowered from 50 to make recommendations more likely
+        logger.info(f"Found {len(existing_installations)} existing installations")
         if existing_installations:
             from collections import defaultdict, Counter
             product_groups = defaultdict(lambda: defaultdict(list))
@@ -326,9 +348,11 @@ class CheckCompatibility:
                 product_groups[product_family]['versions'].append(version)
                 product_groups[product_family]['envs'].append(str(env))
             
+            logger.info(f"Grouped into {len(product_groups)} product families")
             qualifying_products = []
             for product_family, data in product_groups.items():
                 total_servers = len(data['versions'])
+                logger.info(f"Product {product_family}: {total_servers} servers (threshold: {threshold})")
                 if total_servers >= threshold:
                     highest_version = "0.0"
                     if data['versions']:
@@ -340,7 +364,9 @@ class CheckCompatibility:
                     environments = sorted(list(set(e for e in data['envs'] if e not in ['Unknown', 'Closed', 'nan'])))
                     if environments:
                         qualifying_products.append((product_family, highest_version, environments, total_servers))
+                        logger.info(f"Qualified: {product_family} {highest_version} with {total_servers} servers")
             
+            logger.info(f"Found {len(qualifying_products)} qualifying products")
             if qualifying_products:
                 qualifying_products.sort(key=lambda x: x[3], reverse=True)
 
@@ -350,6 +376,7 @@ class CheckCompatibility:
                     prod for prod in qualifying_products
                     if primary_software_family not in prod[0]
                 ]
+                logger.info(f"After filtering out {primary_software_family}: {len(filtered_products)} products")
 
                 if not filtered_products:
                     # If nothing is left after filtering, the recommendation is different
@@ -375,25 +402,42 @@ class CheckCompatibility:
 
             else:
                 if change_request.action == 'install':
-                    warnings.append("No significant existing installations found (threshold: 50 servers)")
+                    warnings.append("No significant existing installations found (threshold: 10 servers)")
                 elif change_request.action == 'upgrade':
-                    recommendations.append("No significant existing installations found for this upgrade (threshold: 50 servers)")
+                    recommendations.append("No significant existing installations found for this upgrade (threshold: 10 servers)")
         
-        # Calculate compatibility confidence
-        confidence = self._calculate_confidence(conflicts, warnings, len(affected_servers))
+        logger.info(f"Final recommendations: {len(recommendations)} items")
+        for i, rec in enumerate(recommendations):
+            logger.info(f"Recommendation {i+1}: {rec}")
+        
+        # Add personalized recommendations based on user configuration
+        if target_os or user_database or user_web_servers:
+            personalized_recs = self._generate_personalized_recommendations(
+                change_request, target_os, user_database, user_web_servers
+            )
+            recommendations.extend(personalized_recs)
         
         # Determine overall compatibility
         is_compatible = len(conflicts) == 0
         
-        return CompatibilityResult(
+        # Create analysis result object for confidence scoring
+        analysis_result = CompatibilityResult(
             is_compatible=is_compatible,
-            confidence=confidence,
+            confidence=0.0,  # Will be calculated by confidence scorer
             affected_servers=affected_servers,
             conflicts=conflicts,
             recommendations=recommendations,
             warnings=warnings,
             alternative_versions=alternative_versions
         )
+        
+        # Calculate compatibility confidence using simple rule-based approach
+        confidence = self._calculate_confidence(change_request, analysis_result, rag_results)
+        
+        # Update the analysis result with the calculated confidence
+        analysis_result.confidence = confidence
+        
+        return analysis_result
     
     def _extract_os_from_server(self, server: Dict[str, Any]) -> Optional[str]:
         """Extract OS information from server data by finding an OPERATING SYSTEM entry in the same environment."""
@@ -411,6 +455,8 @@ class CheckCompatibility:
     
     def _extract_version_from_os(self, os_name: str) -> Optional[str]:
         """Extract version from OS name."""
+        if not os_name or not isinstance(os_name, str):
+            return None
         match = re.search(r'(\d+\.\d+)', os_name)
         return match.group(1) if match else None
     
@@ -422,23 +468,65 @@ class CheckCompatibility:
         
         # Simple matching logic - can be enhanced
         return software_name.upper() in manufacturer or software_name.upper() in product_type
+
+    def _calculate_confidence(self, change_request: ChangeRequest, analysis_result: CompatibilityResult, rag_results: Optional[List[Dict[str, Any]]] = None) -> float:
+        """Calculate confidence score using RAG similarity scores."""
+        try:
+            # Use existing RAG results if available, otherwise perform a new query
+            if rag_results and len(rag_results) > 0:
+                # Check if rag_results is a list of dictionaries with similarity_score
+                if isinstance(rag_results, list) and len(rag_results) > 0:
+                    # Use the actual similarity scores from RAG
+                    scores = []
+                    for result in rag_results[:3]:
+                        if isinstance(result, dict):
+                            score = result.get('similarity_score', 0.0)
+                            scores.append(score)
+                        else:
+                            logger.warning(f"Unexpected result type: {type(result)}")
+                    
+                    if scores:
+                        # Average the top similarity scores (already normalized to 0-1)
+                        confidence = sum(scores) / len(scores)
+                        logger.info(f"Confidence from RAG similarity scores: {confidence:.3f} (avg_score: {confidence:.3f})")
+                        return confidence
+            
+            # Fallback to a simple query if no RAG results available
+            query_text = change_request.raw_text
+            rag_results = self.query_engine.query(query_text, top_k=5)
+            if rag_results and len(rag_results) > 0:
+                scores = [result.get('similarity_score', 0.0) for result in rag_results[:3]]
+                if scores:
+                    confidence = sum(scores) / len(scores)
+                    logger.info(f"Confidence from fallback RAG query: {confidence:.3f} (avg_score: {confidence:.3f})")
+                    return confidence
+            
+            # If no RAG results at all, return neutral confidence
+            logger.warning("No RAG results available for confidence calculation")
+            return 0.5
+                
+        except Exception as e:
+            logger.error(f"Error calculating confidence: {e}")
+            return 0.5  # Neutral confidence on error
+
     
-    def _calculate_confidence(self, conflicts: List[str], warnings: List[str], total_servers: int) -> float:
-        """Calculate confidence score for compatibility."""
-        if total_servers == 0:
-            return 0.0
+    def _generate_personalized_recommendations(self, change_request: ChangeRequest, target_os: Optional[str], 
+                                             user_database: Optional[str], user_web_servers: Optional[List[str]]) -> List[str]:
+        """Generate personalized recommendations based on user configuration."""
+        recommendations = []
         
-        # Base confidence
-        confidence = 1.0
-        
-        # Reduce for conflicts
-        confidence -= len(conflicts) * 0.3
-        
-        # Reduce for warnings
-        confidence -= len(warnings) * 0.1
-        
-        # Ensure confidence is between 0 and 1
-        return max(0.0, min(1.0, confidence))
+        # Always include user's configuration context
+        if target_os or user_database or user_web_servers:
+            config_parts = []
+            if target_os:
+                config_parts.append(f"OS: {target_os}")
+            if user_database:
+                config_parts.append(f"Database: {user_database}")
+            if user_web_servers:
+                config_parts.append(f"Web Servers: {', '.join(user_web_servers)}")
+            
+            recommendations.append(f"Analysis based on your configuration: {', '.join(config_parts)}")
+        return recommendations
     
     def format_analysis_result(self, result: CompatibilityResult, change_request: ChangeRequest) -> str:
         """Format analysis result for display."""
@@ -583,11 +671,12 @@ class CheckCompatibility:
             change_requests = [cr] if cr else []
         return change_requests
 
-    def analyze_multiple_compatibility(self, change_requests: List[ChangeRequest], target_os: Optional[str] = None) -> List[Tuple[ChangeRequest, CompatibilityResult]]:
-        """Analyze compatibility for multiple change requests, optionally filtering by target OS."""
+    def analyze_multiple_compatibility(self, change_requests: List[ChangeRequest], target_os: Optional[str] = None,
+                                    user_database: Optional[str] = None, user_web_servers: Optional[List[str]] = None) -> List[Tuple[ChangeRequest, CompatibilityResult]]:
+        """Analyze compatibility for multiple change requests, optionally filtering by user configuration."""
         results = []
         for cr in change_requests:
-            result = self.analyze_compatibility(cr, target_os=target_os)
+            result = self.analyze_compatibility(cr, target_os=target_os, user_database=user_database, user_web_servers=user_web_servers)
             results.append((cr, result))
         return results
 
