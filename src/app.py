@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -14,13 +14,26 @@ import json
 # Add project root to sys.path for imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+from src.rag.CompatibilityLLMAgent import agent  # Import the existing agent instance
+from src.Agents.ContextQueryAgent import agent as context_query_agent
+from src.Agents.ChatTitleAgent import ChatTitleAgent
+from src.Agents.SimpleRouter import route_query
 from src.rag.determine_recs import CheckCompatibility
+from src.rag.query_engine import QueryEngine
 from src.evaluation.feedback_system import FeedbackLogger, run_feedback_loop
 from src.data_processing.analyze_compatibility import CompatibilityAnalyzer, get_db_options, get_osi_options
 
 check_compat = CheckCompatibility()
 feedback_logger = FeedbackLogger()
 analyzer = CompatibilityAnalyzer()
+
+# Instantiate the agent once
+# agent = SMARTLLMAgent( # This line is removed as the agent is now imported directly
+#     name="CompatibilityLLMAgent",
+#     model_client=model_client,
+#     system_message=system_message,
+#     description="An agent for software compatibility and system integration analysis."
+# )
 
 app = FastAPI()
 
@@ -118,11 +131,10 @@ def get_recent_feedback():
 
 # Initialize database
 def init_db():
-    """Initialize the SQLite database for user configurations."""
+    """Initialize the SQLite database for user configurations and chat history."""
     try:
         conn = sqlite3.connect('user_configs.db')
         cursor = conn.cursor()
-        
         # Create user_configs table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS user_configs (
@@ -133,7 +145,17 @@ def init_db():
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
-        
+        # Create user_chats table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS user_chats (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                session_id TEXT NOT NULL,
+                message_id TEXT NOT NULL,
+                message_data TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
         conn.commit()
         conn.close()
         print("Database initialized successfully")
@@ -279,6 +301,115 @@ async def analytics_os():
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+@app.api_route("/api/query_intent", methods=["GET", "POST"])
+async def query_intent(request: Request):
+    if request.method == "GET":
+        query = request.query_params.get("query")
+    else:  # POST
+        try:
+            data = await request.json()
+            query = data.get("query")
+        except Exception:
+            query = None
+    if not query:
+        raise HTTPException(status_code=400, detail="Missing query")
+    result = ""
+    async for chunk in context_query_agent.run_stream(task=query):
+        if hasattr(chunk, "content"):
+            result += str(chunk.content)
+        else:
+            result += str(chunk)
+    return {"result": result}
+
+chat_title_agent = ChatTitleAgent()
+
+@app.post("/api/generate_title")
+async def generate_title(request: Request):
+    data = await request.json()
+    first_message = data.get('message')
+    if not first_message:
+        return JSONResponse(status_code=400, content={"error": "Message required"})
+    title = await chat_title_agent.generate_title(first_message)
+    return {"title": title}
+
+@app.post("/api/rag_query")
+async def rag_query(request: Request):
+    """Process a user query using simple routing - casual or RAG."""
+    try:
+        data = await request.json()
+        user_query = data.get('query')
+        user_os = data.get('os')
+        user_database = data.get('database')
+        user_web_servers = data.get('webServers', [])
+        
+        if not user_query:
+            return JSONResponse(status_code=400, content={"error": "Query required"})
+        
+        # Step 1: Use simple router to determine query type
+        routing_result = await route_query(user_query)
+        
+        print(f"Query type: {routing_result['type']}")
+        
+        # Step 2: Handle based on query type
+        if routing_result['type'] == 'casual':
+            # Return casual response directly
+            return {"result": routing_result['response']}
+        
+        else:  # technical query
+            # Use the full RAG pipeline for technical questions
+            # Step 2a: Extract intent and entities using ContextQueryAgent
+            intent_result = ""
+            async for chunk in context_query_agent.run_stream(task=user_query):
+                if hasattr(chunk, "content"):
+                    intent_result += str(chunk.content)
+                else:
+                    intent_result += str(chunk)
+            
+            # Step 2b: Use the RAG system to get relevant context
+            query_engine = QueryEngine()
+            rag_results = query_engine.query(user_query, top_k=5)
+            rag_context = query_engine.format_results_for_llm(rag_results)
+            
+            # Step 2c: Use CheckCompatibility for structured analysis
+            check_compat = CheckCompatibility()
+            change_requests = check_compat.parse_multiple_change_requests(user_query)
+            
+            if change_requests:
+                # Analyze compatibility with user config
+                results = check_compat.analyze_multiple_compatibility(
+                    change_requests,
+                    target_os=user_os,
+                    user_database=user_database,
+                    user_web_servers=user_web_servers
+                )
+                compatibility_analysis = check_compat.format_multiple_results(results)
+            else:
+                compatibility_analysis = "No specific software change requests detected in your query."
+            
+            # Step 2d: Combine all information for a comprehensive response
+            comprehensive_response = f"""
+**Intent Analysis:**
+{intent_result}
+
+**Relevant Context from Your Infrastructure:**
+{rag_context}
+
+**Compatibility Analysis:**
+{compatibility_analysis}
+
+**Personalized Recommendations:**
+Based on your system configuration (OS: {user_os or 'Not specified'}, Database: {user_database or 'Not specified'}, Web Servers: {', '.join(user_web_servers) if user_web_servers else 'Not specified'}):
+- Consider the compatibility analysis above
+- Review the relevant infrastructure context
+- Ensure proper testing in your environment before proceeding
+"""
+            
+            return {"result": comprehensive_response.strip()}
+        
+    except Exception as e:
+        print(f"Error in query processing: {str(e)}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 @app.get("/api/options/databases")
 async def get_db_options_endpoint():
     """Get available database options for dropdown from analyze_compatibility.py."""
@@ -289,9 +420,8 @@ async def get_db_options_endpoint():
 
 @app.get("/api/options/operating-systems")
 async def get_osi_options_endpoint():
-    """Get available operating system options for dropdown from analyze_compatibility.py."""
     try:
-        return {"operating_systems": get_osi_options()}
+        return {"operating_systems": analyzer.get_osi_options()}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
@@ -359,62 +489,46 @@ async def get_web_server_options_endpoint():
 async def save_user_config(config_data: dict):
     """Save user configuration to database."""
     try:
-        # For now, use a default user ID. In a real app, you'd get this from authentication
-        user_id = "default_user"
-        
+        user_id = config_data.get('user_id', 'default_user')
         # Validate required fields
         required_fields = ['operatingSystem', 'database', 'webServers', 'useInChat']
-        
         for field in required_fields:
             if field not in config_data:
                 return JSONResponse(
                     status_code=400, 
                     content={"error": f"Missing required field: {field}"}
                 )
-        
         # Save to database
         conn = sqlite3.connect('user_configs.db')
         cursor = conn.cursor()
-        
         # Convert config to JSON string
         config_json = json.dumps(config_data)
-        
         # Insert or update user config
         cursor.execute('''
             INSERT OR REPLACE INTO user_configs (user_id, config_data, updated_at)
             VALUES (?, ?, ?)
         ''', (user_id, config_json, datetime.now().isoformat()))
-        
         conn.commit()
         conn.close()
-        
         print(f"User configuration saved to database for user: {user_id}")
-        
         return {"message": "Configuration saved successfully"}
-        
     except Exception as e:
         print(f"Error saving configuration to database: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/user/config")
-async def get_user_config():
+async def get_user_config(user_id: str = Query('default_user')):
     """Get user configuration from database."""
     try:
-        # For now, use a default user ID. In a real app, you'd get this from authentication
-        user_id = "default_user"
-        
         conn = sqlite3.connect('user_configs.db')
         cursor = conn.cursor()
-        
         # Get user config from database
         cursor.execute('''
             SELECT config_data FROM user_configs 
             WHERE user_id = ?
         ''', (user_id,))
-        
         result = cursor.fetchone()
         conn.close()
-        
         if result:
             # Parse the JSON config data
             config_data = json.loads(result[0])
@@ -431,9 +545,59 @@ async def get_user_config():
                     "webServers": True
                 }
             }
-        
     except Exception as e:
         print(f"Error retrieving configuration from database: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.post("/api/user/chat")
+async def save_user_chat(chat_data: dict):
+    """Save a chat message for a user and session."""
+    try:
+        user_id = chat_data.get('user_id', 'default_user')
+        session_id = chat_data.get('session_id')
+        message_id = chat_data.get('message_id')
+        message_data = chat_data.get('message_data')
+        if not (user_id and session_id and message_id and message_data):
+            return JSONResponse(status_code=400, content={"error": "Missing required chat fields."})
+        conn = sqlite3.connect('user_configs.db')
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO user_chats (user_id, session_id, message_id, message_data, created_at)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (user_id, session_id, message_id, json.dumps(message_data), datetime.now().isoformat()))
+        conn.commit()
+        conn.close()
+        return {"message": "Chat message saved successfully"}
+    except Exception as e:
+        print(f"Error saving chat message: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/api/user/chat")
+async def get_user_chat(user_id: str = Query('default_user')):
+    """Get all chat sessions/messages for a user."""
+    try:
+        conn = sqlite3.connect('user_configs.db')
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT session_id, message_id, message_data, created_at FROM user_chats
+            WHERE user_id = ?
+            ORDER BY session_id, created_at
+        ''', (user_id,))
+        rows = cursor.fetchall()
+        conn.close()
+        # Group messages by session_id
+        sessions = {}
+        for row in rows:
+            session_id, message_id, message_data, created_at = row
+            msg = json.loads(message_data)
+            msg['message_id'] = message_id
+            msg['created_at'] = created_at
+            if session_id not in sessions:
+                sessions[session_id] = []
+            sessions[session_id].append(msg)
+        return {"sessions": sessions}
+    except Exception as e:
+        print(f"Error retrieving chat history: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/analytics/recent")
