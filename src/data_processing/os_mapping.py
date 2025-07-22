@@ -1,150 +1,121 @@
 import pandas as pd
 import logging
-import os
-import sys
+import os 
+import time
 import psutil
-import gc
-import warnings
+import unicodedata
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def _clean_text(text):
-    """Clean text by removing special characters and converting to uppercase."""
-    if pd.isna(text):
-        return text
-    cleaned_text = str(text).strip().upper().replace('"', '')
-    if '.' in cleaned_text:
-        cleaned_text = cleaned_text.split('.')[0]
-    return cleaned_text
-
-def _validate_data(df, required_columns):
-    """Validate that required columns exist in the dataframe."""
-    missing_columns = [col for col in required_columns if col not in df.columns]
-    if missing_columns:
-        raise ValueError(f"Input file is missing required columns: {missing_columns}")
-
-def log_memory_usage():
-    process = psutil.Process(os.getpid())
-    memory_info = process.memory_info()
-    logger.info(f"Memory usage: {memory_info.rss / 1024 / 1024:.2f} MB")
-
-def robust_read_csv(filepath, **kwargs):
-    """Try reading a CSV with utf-8, then fallback to latin1 if needed."""
+def process_sor_history():
+    start_time = time.time()
+    logger.info("Starting SOR history processing...")
+    logger.info(f"Memory usage: {psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024:.2f} MB")
     try:
-        df = pd.read_csv(filepath, encoding='utf-8', **kwargs)
-        logger.info(f"Read {filepath} with utf-8 encoding.")
-        return df
-    except UnicodeDecodeError as e:
-        logger.warning(f"utf-8 decode error for {filepath}: {e}. Trying latin1 encoding...")
-        df = pd.read_csv(filepath, encoding='latin1', **kwargs)
-        logger.info(f"Read {filepath} with latin1 encoding.")
-        return df
+        logger.info("\nReading SOR history file...")
+        mapping_path = os.path.join('data', 'processed', 'pcat.csv')
+        platform_df = pd.read_csv(
+            mapping_path, 
+            encoding='latin1',
+            quotechar='"',
+            skipinitialspace = True
+            )
+        logger.info(f"Read {mapping_path} with latin1 encoding.")
+        
+        platform_df.columns = platform_df.columns.str.strip().str.replace('"', '').str.replace(' ', '')
+        # Normalize platform_df['CATALOGID'] once outside the chunk loop
+        platform_df['CATALOGID'] = platform_df['CATALOGID'].astype(str).str.strip().str.upper().apply(lambda x: unicodedata.normalize('NFKC', x))
+        
+        logger.info("Reading SOR history file in chunks...")
+        sor_hist_path = os.path.join('data', 'processed', 'sor_hist.csv')
+        chunk_size = 100000
+        sor_hist_chunks = pd.read_csv(
+            sor_hist_path,
+            encoding='latin1',
+            quotechar='"',
+            skipinitialspace = True,
+            chunksize = chunk_size,
+            on_bad_lines = 'warn'
+        )
+        processed_chunks = []
+        for i, chunk in enumerate(sor_hist_chunks):
+            logger.info(f"Processing chunk {i+1}")
+            chunk.columns = chunk.columns.str.strip().str.replace('"', '')
+            columns_to_drop = ['VERUMLASTMODIFIEDBY', 'VERUMMODIFIEDDATE','VERUMSTATUS', 'VERUMRETIREDDATE']
+            chunk = chunk.drop(columns=columns_to_drop, errors='ignore')
+            # Normalize chunk['NEWVALUE'] and chunk['OLDVALUE'] inside the loop
+            chunk['NEWVALUE'] = chunk['NEWVALUE'].astype(str).str.strip().str.upper().apply(lambda x: unicodedata.normalize('NFKC', x))
+            chunk['OLDVALUE'] = chunk['OLDVALUE'].astype(str).str.strip().str.upper().apply(lambda x: unicodedata.normalize('NFKC', x))
+            logger.debug(f"Chunk {i+1} head:\n{chunk.head()}")
 
-def process_os_mapping():
-    """Process WebServer data and match with component mapping based on CATALOGID."""
-    start_time = pd.Timestamp.now()
-    logger.info("Starting OS mapping processing...")
-    log_memory_usage()
-    
-    try:
-        # Read mapping file
-        logger.info("Reading mapping file...")
-        mapping_df = robust_read_csv('data/processed/pcat_mapping.csv', dtype={'CATALOGID': str})
-        
-        # Clean column names
-        mapping_df.columns = mapping_df.columns.str.strip().str.replace('"', '')
-        
-        # Validate mapping file columns
-        mapping_required = ['CATALOGID', 'MODEL']
-        _validate_data(mapping_df, mapping_required)
-        
-        # Create a set of CATALOGIDs for quick lookup
-        catalogid_set = set(mapping_df['CATALOGID'].apply(_clean_text))
-        logger.info(f"Sample CATALOGIDs in Mapping: {list(catalogid_set)[:5]}")
-        
-        # Clear mapping dataframe from memory
-        del mapping_df
-        gc.collect()
-        log_memory_usage()
-        
-        # Read the entire WebServer.csv file at once
-        logger.info("Reading WebServer.csv file...")
-        webserver_df = robust_read_csv('data/raw/WebServer.csv')
-        
-        # Clean column names
-        webserver_df.columns = webserver_df.columns.str.strip().str.replace('"', '')
-        
-        # Initialize a list to store matched records
-        matched_records = []
-        
-        # Iterate through each row in WebServer.csv
-        for _, row in webserver_df.iterrows():
-            catalogid = _clean_text(row['CATALOGID'])
-            if catalogid in catalogid_set:
-                matched_records.append(row)
-        
-        # Create a DataFrame from matched records
-        matched_df = pd.DataFrame(matched_records)
-        
-        # Create output directory if it doesn't exist
-        os.makedirs('data/processed', exist_ok=True)
-        
-        # Save processed data
-        output_file = 'data/processed/Server_Software_Mapping.csv'
-        logger.info(f"Saving {len(matched_df)} records to {output_file}...")
-        matched_df.to_csv(output_file, index=False)
-        
-        # Calculate processing time
-        processing_time = pd.Timestamp.now() - start_time
-        logger.info(f"Data processing completed in {processing_time.total_seconds():.2f} seconds")
-        log_memory_usage()
-        
-        # Print summary statistics
-        logger.info("\nData Summary:")
-        logger.info(f"Total Records in WebServer: {len(webserver_df):,}")
-        logger.info(f"Total Unique CATALOGIDs in Mapping: {len(catalogid_set):,}")
-        logger.info(f"Matched Records: {len(matched_df):,}")
-        
-        return {
-            'total_webserver_records': len(webserver_df),
-            'total_mapping_catalogids': len(catalogid_set),
-            'matched_records': len(matched_df),
-            'processing_time': processing_time.total_seconds()
-        }
-    
+            # Debug: print the head of the chunk
+            print(f"\n--- Chunk {i+1} head ---")
+            print(chunk.head())
+
+            catalogid_rows = chunk[chunk['ATTRIBUTENAME'] == 'CATALOGID'].copy()
+            catalogid_rows['OLDVALUE'] = catalogid_rows['OLDVALUE'].apply(lambda x: x if pd.notna(x) else 'UNKNOWN')
+            catalogid_rows['OLDVALUE'] = catalogid_rows['OLDVALUE'].astype(str).str.strip().str.upper().apply(lambda x: unicodedata.normalize('NFKC', x))
+            catalogid_rows['NEWVALUE'] = catalogid_rows['NEWVALUE'].astype(str).str.strip().str.upper().apply(lambda x: unicodedata.normalize('NFKC', x))
+            platform_df['CATALOGID'] = platform_df['CATALOGID'].astype(str).str.strip().str.upper().apply(lambda x: unicodedata.normalize('NFKC', x))
+
+            # Merge for OLD_MAPPED and OLD_PRODUCTTYPE
+            old_mapped_catalogid = catalogid_rows[['OLDVALUE']].merge(
+                platform_df[['CATALOGID', 'MODEL', 'PRODUCTTYPE']],
+                how='left',
+                left_on='OLDVALUE',
+                right_on='CATALOGID'
+            ).rename(columns={'MODEL':'OLD_MAPPED', 'PRODUCTTYPE': 'OLD_PRODUCTTYPE'})
+
+            # Merge for NEW_MAPPED and NEW_PRODUCTTYPE
+            new_mapped_catalogid = catalogid_rows[['NEWVALUE']].merge(
+                platform_df[['CATALOGID', 'MODEL', 'PRODUCTTYPE']],
+                how='left',
+                left_on='NEWVALUE',
+                right_on='CATALOGID'
+            ).rename(columns={'MODEL': 'NEW_MAPPED', 'PRODUCTTYPE': 'NEW_PRODUCTTYPE'})
+
+            # Assign OLD mappings
+            catalogid_rows['OLD_MAPPED'] = old_mapped_catalogid['OLD_MAPPED'].values
+            catalogid_rows['OLD_PRODUCTTYPE'] = old_mapped_catalogid['OLD_PRODUCTTYPE'].values
+
+            # Assign NEW mappings
+            catalogid_rows['NEW_MAPPED'] = new_mapped_catalogid['NEW_MAPPED'].values
+            catalogid_rows['NEW_PRODUCTTYPE'] = new_mapped_catalogid['NEW_PRODUCTTYPE'].values
+
+            print(f"Old mapped catalogid head:\n{old_mapped_catalogid.head()}")
+            print(f"New mapped catalogid head:\n{new_mapped_catalogid.head()}")
+
+            platform_df['PRODUCTTYPE'] = platform_df['PRODUCTTYPE'].astype(str).str.strip().str.upper().apply(lambda x: unicodedata.normalize('NFKC', x))
+
+            # Debug: print the head of the CATALOGID mapping (after assignment)
+            print(f"\n--- Chunk {i+1} CATALOGID mapping head ---")
+            print(catalogid_rows[['OLDVALUE', 'OLD_MAPPED', 'OLD_PRODUCTTYPE', 'NEWVALUE', 'NEW_MAPPED', 'NEW_PRODUCTTYPE']].head())
+
+            model_rows = chunk[chunk['ATTRIBUTENAME'] == 'MODEL'].copy()
+            model_rows.loc[:, 'OLD_MAPPED'] = model_rows['OLDVALUE']
+            model_rows.loc[:, 'NEW_MAPPED'] = model_rows['NEWVALUE']
+
+            model_rows['OLDPRODUCTTYPE'] = None
+            model_rows['NEWPRODUCTTYPE'] = None
+
+            chunk.loc[catalogid_rows.index, ['OLD_MAPPED', 'NEW_MAPPED', 'OLD_PRODUCTTYPE', 'NEW_PRODUCTTYPE']] = catalogid_rows[['OLD_MAPPED', 'NEW_MAPPED', 'OLD_PRODUCTTYPE', 'NEW_PRODUCTTYPE']]
+            chunk.loc[model_rows.index, ['OLD_MAPPED', 'NEW_MAPPED', 'OLD_PRODUCTTYPE', 'NEW_PRODUCTTYPE']] = model_rows[['OLD_MAPPED', 'NEW_MAPPED', 'OLD_PRODUCTTYPE', 'NEW_PRODUCTTYPE']]
+
+            processed_chunks.append(chunk)
+        sor_hist_df = pd.concat(processed_chunks, ignore_index=True)
+
+        os.makedirs(os.path.join('data', 'processed'), exist_ok=True)
+        output_path = os.path.join('data', 'processed', 'sor_pcat_mapped.csv')
+        logger.info(f"\n Saving {len(sor_hist_df)} rows to {output_path}")
+        sor_hist_df.to_csv(output_path, index=False, quoting=1)
+
+        end_time = time.time()
+        logger.info(f"Data processing completed in {end_time - start_time:.2f} seconds")
+        logger.info(f"Memory usage: {psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024:.2f} MB")
     except Exception as e:
-        logger.error(f"Fatal error in processing: {str(e)}")
+        logger.error(f"Error processing SOR history: {e}")
         raise
 
-def map_os_to_software(os_version):
-    """Map OS version to software name using the PCat mapping."""
-    # Read mapping file
-    mapping_df = robust_read_csv('data/processed/pcat_mapping.csv', dtype={'CATALOGID': str})
-    
-    # Clean column names
-    mapping_df.columns = mapping_df.columns.str.strip().str.replace('"', '')
-    
-    # Validate mapping file columns
-    mapping_required = ['CATALOGID', 'MODEL']
-    _validate_data(mapping_df, mapping_required)
-    
-    # Create a dictionary for quick lookup using CATALOGID to MODEL
-    catalogid_to_model = dict(zip(mapping_df['CATALOGID'].apply(_clean_text), mapping_df['MODEL']))
-    
-    # Clean the OS version for lookup
-    cleaned_os_version = _clean_text(os_version)
-    
-    # Return the model if found, otherwise return None
-    return catalogid_to_model.get(cleaned_os_version)
-
-if __name__ == '__main__':
-    try:
-        process_os_mapping()
-    except Exception as e:
-        logger.error(f"Script failed: {str(e)}")
-        sys.exit(1) 
+if __name__ == "__main__":
+    process_sor_history()

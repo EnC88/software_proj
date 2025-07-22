@@ -10,6 +10,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 import sqlite3
 import json
+from pydantic import BaseModel
 
 # Add project root to sys.path for imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -18,12 +19,12 @@ from src.rag.CompatibilityLLMAgent import agent  # Import the existing agent ins
 from src.Agents.ContextQueryAgent import agent as context_query_agent
 from src.Agents.ChatTitleAgent import ChatTitleAgent
 from src.Agents.SimpleRouter import route_query
-from src.rag.determine_recs import CheckCompatibility
+from src.rag.determine_recs import get_co_upgrades
 from src.rag.query_engine import QueryEngine
 from src.evaluation.feedback_system import FeedbackLogger, run_feedback_loop
 from src.data_processing.analyze_compatibility import CompatibilityAnalyzer, get_db_options, get_osi_options
+from src.rag.RecommendationValidationAgent import RecommendationValidationAgent  # Import the validation agent
 
-check_compat = CheckCompatibility()
 feedback_logger = FeedbackLogger()
 analyzer = CompatibilityAnalyzer()
 
@@ -156,6 +157,15 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        # Create chat_session_titles table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS chat_session_titles (
+                user_id TEXT NOT NULL,
+                session_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                PRIMARY KEY (user_id, session_id)
+            )
+        ''')
         conn.commit()
         conn.close()
         print("Database initialized successfully")
@@ -164,6 +174,12 @@ def init_db():
 
 # Initialize database on startup
 init_db()
+
+# Create global instances to avoid reloading on every request
+print("Initializing heavy components...")
+check_compat = CheckCompatibility()
+query_engine = QueryEngine()
+print("Heavy components initialized successfully!")
 
 # --- API Endpoints ---
 
@@ -182,8 +198,9 @@ async def analyze(request: Request):
     # Log the user configuration being used
     print(f"Analyzing with user config: OS={user_os}, DB={user_database}, WebServers={user_web_servers}")
     
-    change_requests = check_compat.parse_multiple_change_requests(request_text)
-    results = check_compat.analyze_multiple_compatibility(
+    change_requests = await check_compat.parse_multiple_change_requests(request_text)
+    print("DEBUG: change_requests passed to analyze_multiple_compatibility:", change_requests)
+    results = await check_compat.analyze_multiple_compatibility(
         change_requests, 
         target_os=user_os,
         user_database=user_database,
@@ -301,26 +318,6 @@ async def analytics_os():
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-@app.api_route("/api/query_intent", methods=["GET", "POST"])
-async def query_intent(request: Request):
-    if request.method == "GET":
-        query = request.query_params.get("query")
-    else:  # POST
-        try:
-            data = await request.json()
-            query = data.get("query")
-        except Exception:
-            query = None
-    if not query:
-        raise HTTPException(status_code=400, detail="Missing query")
-    result = ""
-    async for chunk in context_query_agent.run_stream(task=query):
-        if hasattr(chunk, "content"):
-            result += str(chunk.content)
-        else:
-            result += str(chunk)
-    return {"result": result}
-
 chat_title_agent = ChatTitleAgent()
 
 @app.post("/api/generate_title")
@@ -334,78 +331,100 @@ async def generate_title(request: Request):
 
 @app.post("/api/rag_query")
 async def rag_query(request: Request):
-    """Process a user query using simple routing - casual or RAG."""
+    """Handle only technical/compatibility queries: analyze, recommend, label, validate."""
     try:
         data = await request.json()
         user_query = data.get('query')
         user_os = data.get('os')
         user_database = data.get('database')
         user_web_servers = data.get('webServers', [])
-        
+
         if not user_query:
             return JSONResponse(status_code=400, content={"error": "Query required"})
-        
-        # Step 1: Use simple router to determine query type
-        routing_result = await route_query(user_query)
-        
-        print(f"Query type: {routing_result['type']}")
-        
-        # Step 2: Handle based on query type
-        if routing_result['type'] == 'casual':
-            # Return casual response directly
-            return {"result": routing_result['response']}
-        
-        else:  # technical query
-            # Use the full RAG pipeline for technical questions
-            # Step 2a: Extract intent and entities using ContextQueryAgent
-            intent_result = ""
-            async for chunk in context_query_agent.run_stream(task=user_query):
-                if hasattr(chunk, "content"):
-                    intent_result += str(chunk.content)
-                else:
-                    intent_result += str(chunk)
-            
-            # Step 2b: Use the RAG system to get relevant context
-            query_engine = QueryEngine()
-            rag_results = query_engine.query(user_query, top_k=5)
-            rag_context = query_engine.format_results_for_llm(rag_results)
-            
-            # Step 2c: Use CheckCompatibility for structured analysis
-            check_compat = CheckCompatibility()
-            change_requests = check_compat.parse_multiple_change_requests(user_query)
-            
-            if change_requests:
-                # Analyze compatibility with user config
-                results = check_compat.analyze_multiple_compatibility(
-                    change_requests,
-                    target_os=user_os,
-                    user_database=user_database,
-                    user_web_servers=user_web_servers
+
+        # Only handle technical queries for now
+        change_requests = await check_compat.parse_multiple_change_requests(user_query)
+        if change_requests:
+            results = await check_compat.analyze_multiple_compatibility(
+                change_requests,
+                target_os=user_os,
+                user_database=user_database,
+                user_web_servers=user_web_servers
+            )
+            compatibility_analysis = check_compat.format_multiple_results(results)
+            # Gather all recommendations from all results
+            all_recommendations = []
+            all_filtering_steps = []
+            for cr, res in results:
+                if hasattr(res, 'recommendations') and res.recommendations:
+                    all_recommendations.extend(res.recommendations)
+                if hasattr(res, 'filtering_steps') and res.filtering_steps:
+                    all_filtering_steps.extend(res.filtering_steps)
+            # Generate labels for filtering steps using ChatTitleAgent
+            labeled_filtering_steps = []
+            if all_filtering_steps:
+                title_agent = ChatTitleAgent()
+                for step in all_filtering_steps:
+                    try:
+                        label_prompt = f"Generate a 3-5 word label for this filtering step: {step['description']}"
+                        label_result = await title_agent.generate_title(label_prompt)
+                        label = None
+                        if hasattr(label_result, 'messages') and label_result.messages:
+                            for message in label_result.messages:
+                                if hasattr(message, 'type') and message.type == 'TextMessage' and hasattr(message, 'content'):
+                                    label = message.content
+                                    break
+                        elif hasattr(label_result, 'content'):
+                            label = label_result.content
+                        elif isinstance(label_result, str):
+                            label = label_result
+                        if label and isinstance(label, str):
+                            if 'TaskResult(' in label or 'TextMessage(' in label:
+                                import re
+                                content_match = re.search(r"content='([^']*)'", label)
+                                if content_match:
+                                    label = content_match.group(1)
+                                else:
+                                    label = step['stage'].replace('_', ' ').title()
+                            label = label.replace('source= TitleAgent', '').replace('3-5 words:', '').strip()
+                        if not label or len(label) > 50:
+                            label = step['stage'].replace('_', ' ').title()
+                        labeled_filtering_steps.append({
+                            "stage": step['stage'],
+                            "count": step['count'],
+                            "description": step['description'],
+                            "label": label
+                        })
+                    except Exception as e:
+                        labeled_filtering_steps.append({
+                            "stage": step['stage'],
+                            "count": step['count'],
+                            "description": step['description'],
+                            "label": step['stage'].replace('_', ' ').title()
+                        })
+            # Only validate if there are recommendations
+            validated_recommendations = None
+            if all_recommendations:
+                validator = RecommendationValidationAgent()
+                main_cr = change_requests[0]
+                cr_text = main_cr.raw_text if hasattr(main_cr, 'raw_text') else str(main_cr)
+                context_str = f"OS: {user_os}, DB: {user_database}, WebServers: {user_web_servers}"
+                validated_recommendations = await validator.validate_recommendations(
+                    change_request=cr_text,
+                    recommendations=all_recommendations,
+                    context=context_str
                 )
-                compatibility_analysis = check_compat.format_multiple_results(results)
             else:
-                compatibility_analysis = "No specific software change requests detected in your query."
-            
-            # Step 2d: Combine all information for a comprehensive response
-            comprehensive_response = f"""
-**Intent Analysis:**
-{intent_result}
-
-**Relevant Context from Your Infrastructure:**
-{rag_context}
-
-**Compatibility Analysis:**
-{compatibility_analysis}
-
-**Personalized Recommendations:**
-Based on your system configuration (OS: {user_os or 'Not specified'}, Database: {user_database or 'Not specified'}, Web Servers: {', '.join(user_web_servers) if user_web_servers else 'Not specified'}):
-- Consider the compatibility analysis above
-- Review the relevant infrastructure context
-- Ensure proper testing in your environment before proceeding
-"""
-            
-            return {"result": comprehensive_response.strip()}
-        
+                validated_recommendations = "No recommendations to validate."
+            return {
+                "result": compatibility_analysis.strip(),
+                "validated_recommendations": validated_recommendations,
+                "filtering_steps": labeled_filtering_steps
+            }
+        else:
+            return {"result": "No specific software change requests detected in your query.",
+                    "validated_recommendations": None,
+                    "filtering_steps": []}
     except Exception as e:
         print(f"Error in query processing: {str(e)}")
         return JSONResponse(status_code=500, content={"error": str(e)})
@@ -429,59 +448,8 @@ async def get_osi_options_endpoint():
 async def get_web_server_options_endpoint():
     """Get available web server options for dropdown from actual data."""
     try:
-        import pandas as pd
-        import os
-        import json
-        
-        # Try to extract web server options from the data files
-        web_servers = []
-        
-        # First, try to get from compatibility analysis JSON
-        analysis_file = 'data/processed/compatibility_analysis.json'
-        if os.path.exists(analysis_file):
-            try:
-                with open(analysis_file, 'r') as f:
-                    analysis_data = json.load(f)
-                
-                # Extract web server models from the analysis data
-                for server in analysis_data.get('servers', []):
-                    if 'web_server' in server:
-                        web_servers.append(server['web_server'])
-            except Exception as e:
-                print(f"Error reading compatibility analysis: {e}")
-        
-        # If no web servers found, try CSV files
-        if not web_servers:
-            data_files = [
-                'data/processed/Webserver_OS_Mapping.csv',
-                'data/raw/WebServer.csv'
-            ]
-            
-            for file_path in data_files:
-                if os.path.exists(file_path):
-                    try:
-                        df = pd.read_csv(file_path)
-                        
-                        # Look for web server related columns
-                        web_server_columns = [col for col in df.columns if any(keyword in col.lower() for keyword in ['webserver', 'web_server', 'server'])]
-                        
-                        for col in web_server_columns:
-                            unique_values = df[col].dropna().unique()
-                            web_servers.extend([str(val) for val in unique_values if val and str(val).strip()])
-                    except Exception as e:
-                        print(f"Error reading {file_path}: {e}")
-        
-        # Remove duplicates and sort
-        web_servers = sorted(list(set(web_servers)))
-        
-        # Fallback to hardcoded options if no data found
-        if not web_servers:
-            web_servers = [
-                'Apache HTTP Server 2.4', 'Nginx 1.20', 'Nginx 1.22', 'Microsoft IIS 10',
-                'Tomcat 9', 'Tomcat 10', 'Node.js 16', 'Node.js 18', 'Node.js 20'
-            ]
-        
-        return {"web_servers": web_servers}
+        from src.data_processing.analyze_compatibility import get_web_server_options
+        return {"web_servers": get_web_server_options()}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
@@ -572,9 +540,42 @@ async def save_user_chat(chat_data: dict):
         print(f"Error saving chat message: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+@app.post("/api/user/chat_title")
+async def save_chat_title(user_id: str, session_id: str, title: str):
+    """Save or update a chat session title."""
+    try:
+        conn = sqlite3.connect('user_configs.db')
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT OR REPLACE INTO chat_session_titles (user_id, session_id, title)
+            VALUES (?, ?, ?)
+        ''', (user_id, session_id, title))
+        conn.commit()
+        conn.close()
+        return {"message": "Title saved"}
+    except Exception as e:
+        print(f"Error saving chat title: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/api/user/chat_titles")
+async def get_chat_titles(user_id: str):
+    """Get all chat session titles for a user."""
+    try:
+        conn = sqlite3.connect('user_configs.db')
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT session_id, title FROM chat_session_titles WHERE user_id = ?
+        ''', (user_id,))
+        rows = cursor.fetchall()
+        conn.close()
+        return {"titles": {row[0]: row[1] for row in rows}}
+    except Exception as e:
+        print(f"Error fetching chat titles: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 @app.get("/api/user/chat")
 async def get_user_chat(user_id: str = Query('default_user')):
-    """Get all chat sessions/messages for a user."""
+    """Get all chat sessions/messages for a user, including session titles if available."""
     try:
         conn = sqlite3.connect('user_configs.db')
         cursor = conn.cursor()
@@ -584,6 +585,12 @@ async def get_user_chat(user_id: str = Query('default_user')):
             ORDER BY session_id, created_at
         ''', (user_id,))
         rows = cursor.fetchall()
+        # Fetch titles
+        cursor.execute('''
+            SELECT session_id, title FROM chat_session_titles WHERE user_id = ?
+        ''', (user_id,))
+        title_rows = cursor.fetchall()
+        session_titles = {row[0]: row[1] for row in title_rows}
         conn.close()
         # Group messages by session_id
         sessions = {}
@@ -595,9 +602,26 @@ async def get_user_chat(user_id: str = Query('default_user')):
             if session_id not in sessions:
                 sessions[session_id] = []
             sessions[session_id].append(msg)
-        return {"sessions": sessions}
+        return {"sessions": sessions, "session_titles": session_titles}
     except Exception as e:
         print(f"Error retrieving chat history: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.delete("/api/user/chat_session")
+async def delete_user_chat_session(user_id: str, session_id: str):
+    """Delete all chat messages for a user and session."""
+    try:
+        conn = sqlite3.connect('user_configs.db')
+        cursor = conn.cursor()
+        cursor.execute('''
+            DELETE FROM user_chats WHERE user_id = ? AND session_id = ?
+        ''', (user_id, session_id))
+        conn.commit()
+        deleted = cursor.rowcount
+        conn.close()
+        return {"message": f"Deleted {deleted} messages for session {session_id}"}
+    except Exception as e:
+        print(f"Error deleting chat session: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/analytics/recent")
@@ -606,6 +630,15 @@ async def analytics_recent():
         return {"recent_feedback": get_recent_feedback()}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+class CoUpgradeRequest(BaseModel):
+    catalogid: str
+
+@app.post('/api/test_co_upgrade')
+async def test_co_upgrade(body: CoUpgradeRequest):
+    catalogid = body.catalogid
+    co_upgrades = get_co_upgrades(catalogid)
+    return {'co_upgrades': co_upgrades}
 
 if __name__ == "__main__":
     uvicorn.run("src.app:app", host="0.0.0.0", port=8000, reload=True) 

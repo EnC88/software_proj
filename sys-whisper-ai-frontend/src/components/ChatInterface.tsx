@@ -162,7 +162,7 @@ const ChatInterface = () => {
                     {message.category.toUpperCase()}
                   </div>
                 )}
-                <p className="text-sm leading-relaxed">{message.text}</p>
+                <p className="text-sm leading-relaxed whitespace-pre-line">{message.text}</p>
                 <p className={`text-xs mt-2 ${message.isUser ? 'text-slate-300' : 'text-gray-500'}`}>
                   {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>

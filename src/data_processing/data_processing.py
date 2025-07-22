@@ -13,6 +13,7 @@ import psutil
 import gc
 import warnings
 import csv
+import json
 
 # Configure logging
 logging.basicConfig(

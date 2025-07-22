@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { STORAGE_KEYS, API_ENDPOINTS } from '@/lib/constants';
+import { getOrCreateUserId } from '@/lib/utils';
 
 interface SystemConfig {
   operatingSystem: string;
@@ -59,7 +60,8 @@ export const useUserConfig = () => {
         // Only try to load from API if we don't have local config
         if (!hasLocalConfig) {
           try {
-            const response = await fetch(API_ENDPOINTS.USER_CONFIG);
+            const userId = getOrCreateUserId();
+            const response = await fetch(`${API_ENDPOINTS.USER_CONFIG}?user_id=${encodeURIComponent(userId)}`);
             if (response.ok) {
               const apiConfig = await response.json();
               // Only use API config if it has meaningful data
@@ -152,12 +154,13 @@ export const useUserConfig = () => {
       
       // Optionally save to API
       try {
+        const userId = getOrCreateUserId();
         const response = await fetch(API_ENDPOINTS.USER_CONFIG, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(newConfig),
+          body: JSON.stringify({ user_id: userId, ...newConfig }),
         });
         
         if (!response.ok) {

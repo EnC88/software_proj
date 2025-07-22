@@ -6,10 +6,14 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Computer, Database, Server, User, ChevronDown, Save, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Computer, Database, Server, User, ChevronDown, Save, Loader2, CheckCircle, AlertCircle, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { API_ENDPOINTS, STORAGE_KEYS } from '@/lib/constants';
 import { useUserConfig } from '@/hooks/useUserConfig';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
+import { Check } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const Profile = () => {
   const { toast } = useToast();
@@ -21,6 +25,9 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [openOS, setOpenOS] = useState(false);
+  const [openDB, setOpenDB] = useState(false);
+  const [openWS, setOpenWS] = useState(false);
 
   // Fetch options from API
   useEffect(() => {
@@ -124,6 +131,25 @@ const Profile = () => {
     }
   };
 
+  const handleClearConfig = () => {
+    setConfig({
+      operatingSystem: '',
+      database: '',
+      webServers: [],
+      useInChat: {
+        os: true,
+        database: true,
+        webServers: true
+      }
+    });
+    // Optionally clear from localStorage
+    localStorage.removeItem(STORAGE_KEYS.USER_SYSTEM_CONFIG);
+    toast({
+      title: "Configuration Cleared",
+      description: "Your system preferences have been reset.",
+    });
+  };
+
   if (loading || configLoading) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
@@ -183,19 +209,47 @@ const Profile = () => {
                     />
                   </div>
                 </div>
-                <Select 
-                  value={config.operatingSystem} 
-                  onValueChange={(value) => setConfig(prev => ({ ...prev, operatingSystem: value }))}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select operating system" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {operatingSystems.map((os) => (
-                      <SelectItem key={os} value={os}>{os}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={openOS} onOpenChange={setOpenOS}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openOS}
+                      className="w-full justify-between"
+                    >
+                      {config.operatingSystem ? config.operatingSystem : "Select operating system"}
+                      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput placeholder="Search operating systems..." />
+                      <CommandList>
+                        <CommandEmpty>No operating system found.</CommandEmpty>
+                        <CommandGroup>
+                          {operatingSystems.map((os) => (
+                            <CommandItem
+                              key={os}
+                              value={os}
+                              onSelect={(currentValue) => {
+                                setConfig(prev => ({ ...prev, operatingSystem: currentValue === config.operatingSystem ? '' : currentValue }));
+                                setOpenOS(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  config.operatingSystem === os ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {os}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               {/* Database */}
@@ -217,19 +271,47 @@ const Profile = () => {
                     />
                   </div>
                 </div>
-                <Select 
-                  value={config.database} 
-                  onValueChange={(value) => setConfig(prev => ({ ...prev, database: value }))}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select database" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {databases.map((db) => (
-                      <SelectItem key={db} value={db}>{db}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={openDB} onOpenChange={setOpenDB}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openDB}
+                      className="w-full justify-between"
+                    >
+                      {config.database ? config.database : "Select database"}
+                      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput placeholder="Search databases..." />
+                      <CommandList>
+                        <CommandEmpty>No database found.</CommandEmpty>
+                        <CommandGroup>
+                          {databases.map((db) => (
+                            <CommandItem
+                              key={db}
+                              value={db}
+                              onSelect={(currentValue) => {
+                                setConfig(prev => ({ ...prev, database: currentValue === config.database ? '' : currentValue }));
+                                setOpenDB(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  config.database === db ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {db}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               {/* Web Servers */}
@@ -251,40 +333,86 @@ const Profile = () => {
                     />
                   </div>
                 </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
+                <Popover open={openWS} onOpenChange={setOpenWS}>
+                  <PopoverTrigger asChild>
                     <Button variant="outline" className="w-full justify-between">
                       <span>
-                        {config.webServers.length === 0 
-                          ? "Select web servers" 
-                          : `${config.webServers.length} selected`
-                        }
+                        {config.webServers.length === 0
+                          ? "Select web servers"
+                          : `${config.webServers.length} selected`}
                       </span>
                       <ChevronDown className="h-4 w-4" />
                     </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-80">
-                    {webServers.map((webServer) => (
-                      <DropdownMenuCheckboxItem
-                        key={webServer}
-                        checked={config.webServers.includes(webServer)}
-                        onCheckedChange={(checked) => handleWebServerChange(webServer, checked)}
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput placeholder="Search web servers..." />
+                      <CommandList>
+                        <CommandEmpty>No web server found.</CommandEmpty>
+                        <CommandGroup>
+                          {webServers.map((webServer) => (
+                            <CommandItem
+                              key={webServer}
+                              value={webServer}
+                              onSelect={() => {
+                                const checked = !config.webServers.includes(webServer);
+                                handleWebServerChange(webServer, checked);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4 text-orange-600",
+                                  config.webServers.includes(webServer) ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {webServer}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {/* Chips for selected web servers */}
+                {config.webServers.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {config.webServers.map((server) => (
+                      <span
+                        key={server}
+                        className="inline-flex items-center bg-orange-50 border border-orange-200 text-orange-800 rounded-full px-3 py-1 text-xs font-medium shadow-sm"
                       >
-                        {webServer}
-                      </DropdownMenuCheckboxItem>
+                        {server}
+                        <button
+                          type="button"
+                          className="ml-2 text-orange-400 hover:text-orange-700 focus:outline-none"
+                          onClick={() => handleWebServerChange(server, false)}
+                          aria-label={`Remove ${server}`}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
                     ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                  </div>
+                )}
               </div>
 
-              <Button onClick={handleSave} className="w-full bg-slate-800 hover:bg-slate-700" disabled={saving}>
-                {saving ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4 mr-2" />
-                )}
-                {saving ? "Saving..." : "Save Configuration"}
-              </Button>
+              <div className="flex justify-end gap-2 mt-8">
+                <Button
+                  variant="outline"
+                  className="ml-2"
+                  onClick={handleClearConfig}
+                  disabled={saving}
+                >
+                  Clear
+                </Button>
+                <Button
+                  onClick={handleSave}
+                  disabled={saving}
+                >
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  Save
+                </Button>
+              </div>
             </CardContent>
           </Card>
 

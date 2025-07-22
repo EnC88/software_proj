@@ -34,9 +34,8 @@ logger = logging.getLogger(__name__)
 # Go up more levels to reach the root where tlcaas directory is located
 REPO_ROOT = Path(__file__).resolve().parents[4]  # Go up 4 levels instead of 2
 
-# Remove the dataclasses and CheckCompatibility class from this file.
-# Instead, import CheckCompatibility, ChangeRequest, and CompatibilityResult from src.data_processing.analyze_compatibility
-from src.data_processing.analyze_compatibility import CheckCompatibility, ChangeRequest, CompatibilityResult
+# Import CheckCompatibility, ChangeRequest, and CompatibilityResult from the correct module
+from src.rag.determine_recs import CheckCompatibility, ChangeRequest, CompatibilityResult
 
 class SimpleVectorStore:
     """Simple vector store using TF-IDF for offline operation."""
@@ -636,8 +635,10 @@ class VectorStore:
             # --- Use CheckCompatibility for recommendations and affected models ---
             comp_result = None
             try:
-                crs = self.check_compat.parse_multiple_change_requests(query_text)
-                comp_results = self.check_compat.analyze_multiple_compatibility(crs)
+                # Note: This is a synchronous method, so we can't use async calls here
+                # The VectorStore is not used in the main flow, so this is just for reference
+                crs = []
+                comp_results = []
                 comp_result = [
                     {
                         'change_request': cr.__dict__,

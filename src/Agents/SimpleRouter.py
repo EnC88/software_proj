@@ -42,41 +42,37 @@ router_agent = SMARTLLMAgent(
 
 async def route_query(query: str):
     """Route a query to either casual response or RAG processing."""
-    result = ""
-    async for chunk in router_agent.run_stream(task=query):
-        if hasattr(chunk, "content"):
-            result += str(chunk.content)
-        else:
-            result += str(chunk)
-    
-    # Try to parse JSON response
-    import json
-    import re
-    
     try:
-        json_match = re.search(r'\{.*\}', result, re.DOTALL)
+        # Use the agent's run method instead of run_stream for simpler handling
+        result = await router_agent.run(task=query)
+        
+        # Convert result to string if it's not already
+        if hasattr(result, 'content'):
+            result_str = str(result.content)
+        elif hasattr(result, 'strip'):
+            result_str = str(result)
+        else:
+            result_str = str(result)
+        
+        # Try to parse JSON response
+        import json
+        import re
+        
+        json_match = re.search(r'\{.*\}', result_str, re.DOTALL)
         if json_match:
             parsed = json.loads(json_match.group())
             return parsed
         else:
-            # Fallback: simple keyword-based routing
-            query_lower = query.lower()
-            casual_keywords = ['hello', 'hi', 'hey', 'how are you', 'what can you do', 'thanks', 'thank you']
-            if any(keyword in query_lower for keyword in casual_keywords):
-                return {
-                    "type": "casual",
-                    "response": "Hello! I'm here to help with software compatibility questions. How can I assist you today?",
-                    "intent": None
-                }
-            else:
-                return {
-                    "type": "technical",
-                    "response": None,
-                    "intent": "compatibility_check"
-                }
+            # If LLM didn't return valid JSON, default to technical (safer for software compatibility bot)
+            print(f"LLM response not in expected JSON format: {result_str}")
+            return {
+                "type": "technical",
+                "response": None,
+                "intent": "compatibility_check"
+            }
     except Exception as e:
-        print(f"Error parsing router response: {e}")
-        # Fallback to technical
+        print(f"Error in route_query: {e}")
+        # If LLM fails, default to technical (safer for software compatibility bot)
         return {
             "type": "technical",
             "response": None,
@@ -95,8 +91,11 @@ async def main():
     
     for query in test_queries:
         print(f"\nQuery: {query}")
-        result = await route_query(query)
-        print(f"Result: {result}")
+        try:
+            result = await route_query(query)
+            print(f"Result: {result}")
+        except Exception as e:
+            print(f"Error testing query '{query}': {e}")
 
 if __name__ == "__main__":
     asyncio.run(main()) 

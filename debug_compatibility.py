@@ -65,8 +65,8 @@ def debug_compatibility():
     
     # Test the software matching logic
     print(f"\n=== SOFTWARE MATCHING TEST ===")
-    software_to_show_families = [cr.software_name.upper()]
-    print(f"Looking for: {software_to_show_families}")
+    software_to_show_families = analyzer.known_software_families
+    print(f"Looking for any of: {software_to_show_families}")
     
     existing_installations = []
     for i, server in enumerate(affected_servers[:10]):  # Check first 10 servers
@@ -84,7 +84,7 @@ def debug_compatibility():
         
         print(f"Server {i+1}: Model='{model_full}' -> Family='{product_family}', Version='{version}'")
         
-        # Check if this product family matches what we're looking for
+        # Check if this product family matches any known family
         for family_to_show in software_to_show_families:
             if family_to_show in product_family:
                 existing_installations.append((product_family, version, env))

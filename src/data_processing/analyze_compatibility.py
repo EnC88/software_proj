@@ -2,10 +2,18 @@ import pandas as pd
 import logging
 from collections import defaultdict
 import json
+import os
+from typing import List, Dict, Any
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# Load SOR history data globally
+sor_hist_data = None
+sor_hist_path = 'data/processed/sor_pcat_mapped.csv'  # Use the newly processed data with mappings
+if os.path.exists(sor_hist_path):
+    sor_hist_data = pd.read_csv(sor_hist_path)
 
 class CompatibilityAnalyzer:
     def __init__(self):
@@ -18,8 +26,8 @@ class CompatibilityAnalyzer:
         """Load and prepare the data for analysis."""
         logger.info("Loading data files...")
         
-        # Load webserver mapping data
-        self.webserver_data = pd.read_csv('data/processed/Webserver_OS_Mapping.csv')
+        # Load the newly processed data with PRODUCTTYPE mappings
+        self.webserver_data = pd.read_csv('data/processed/sor_pcat_mapped.csv')
         
         # Filter out rows with missing, "Unknown", or "Closed" values
         initial_count = len(self.webserver_data)
@@ -184,6 +192,99 @@ class CompatibilityAnalyzer:
             json.dump(analysis_results, f, indent=4)
         logger.info(f"Analysis results saved to {filepath}")
 
+def load_platform_catalog() -> pd.DataFrame:
+    catalog_path = 'data/raw/Platform_Catalog.csv'
+    if not os.path.exists(catalog_path):
+        logger.error(f"Platform catalog file not found at {catalog_path}")
+        return pd.DataFrame()
+    platform_df = pd.read_csv(catalog_path)
+    platform_df.columns = platform_df.columns.str.strip().str.replace('"', '')
+    platform_df.columns['CATALOGID'] = platform_df.columns['CATALOGID'].astype(str).str.strip()
+    return platform_df
+
+def get_osi_models() -> List[Dict[str, Any]]:
+    try: 
+        platform_df = load_platform_catalog()
+        if platform_df.empty:
+            logger.error("No platform catalog data found")
+            return []
+        os_data = platform_df[(platform_df['PRODUCTTYPE'] == 'OPERATING SYSTEM') & (platform_df['EBFIRMWIDERATING'] != 'Prohibited')]
+        os_data = os_data[~os_data['MODEL'].str.contains('Unknown', case = False, na = False)]
+        os_models = os_data[['MODEL', 'MANUFACTURER']].drop_duplicates()
+        logger.info(f"Found {len(os_models)} OS models")
+        return os_models
+    except Exception as e:
+        logger.error(f"Error getting OS models: {str(e)}")
+        return []
+    
+def get_db_options() -> list:
+    try:
+        if sor_hist_data is None:
+            return ["No database found"]
+        # Old database options with catalogid
+        old_db = sor_hist_data[sor_hist_data['OLDPRODUCTTYPE'] == 'DATABASE'][['OLDVALUE', 'OLD_MAPPED']].dropna()
+        old_db_options = [f"{row['OLDVALUE']} - {row['OLD_MAPPED']}" for _, row in old_db.iterrows()]
+        
+        # New database options with catalogid
+        new_db = sor_hist_data[sor_hist_data['NEWPRODUCTTYPE'] == 'DATABASE'][['NEWVALUE', 'NEW_MAPPED']].dropna()
+        new_db_options = [f"{row['NEWVALUE']} - {row['NEW_MAPPED']}" for _, row in new_db.iterrows()]
+        
+        # Combine and deduplicate
+        db_options = sorted(set(old_db_options + new_db_options))
+        if not db_options:
+            db_options = ['No database found']
+        db_options.insert(0, 'None')
+        return db_options
+    except Exception as e:
+        logger.error(f"Error in get_db_options: {e}")
+        return ["No database found"]
+
+
+def get_web_server_options() -> list:
+    try:
+        if sor_hist_data is None:
+            return ["No web server found"]
+        # Old web server options with catalogid
+        old_ws = sor_hist_data[sor_hist_data['OLDPRODUCTTYPE'] == 'WEB SERVER'][['OLDVALUE', 'OLD_MAPPED']].dropna()
+        old_ws_options = [f"{row['OLDVALUE']} - {row['OLD_MAPPED']}" for _, row in old_ws.iterrows()]
+        
+        # New web server options with catalogid
+        new_ws = sor_hist_data[sor_hist_data['NEWPRODUCTTYPE'] == 'WEB SERVER'][['NEWVALUE', 'NEW_MAPPED']].dropna()
+        new_ws_options = [f"{row['NEWVALUE']} - {row['NEW_MAPPED']}" for _, row in new_ws.iterrows()]
+        
+        # Combine and deduplicate
+        ws_options = sorted(set(old_ws_options + new_ws_options))
+        if not ws_options:
+            ws_options = ['No web server found']
+        ws_options.insert(0, 'None')
+        return ws_options
+    except Exception as e:
+        logger.error(f"Error in get_web_server_options: {e}")
+        return ["No web server found"]
+
+
+def get_osi_options() -> list:
+    try:
+        if sor_hist_data is None:
+            return ["No operating system found"]
+        # Old OS options with catalogid
+        old_os = sor_hist_data[sor_hist_data['OLDPRODUCTTYPE'] == 'OPERATING SYSTEM'][['OLDVALUE', 'OLD_MAPPED']].dropna()
+        old_os_options = [f"{row['OLDVALUE']} - {row['OLD_MAPPED']}" for _, row in old_os.iterrows()]
+        
+        # New OS options with catalogid
+        new_os = sor_hist_data[sor_hist_data['NEWPRODUCTTYPE'] == 'OPERATING SYSTEM'][['NEWVALUE', 'NEW_MAPPED']].dropna()
+        new_os_options = [f"{row['NEWVALUE']} - {row['NEW_MAPPED']}" for _, row in new_os.iterrows()]
+        
+        # Combine and deduplicate
+        os_options = sorted(set(old_os_options + new_os_options))
+        if not os_options:
+            os_options = ['No operating system found']
+        os_options.insert(0, 'None')
+        return os_options
+    except Exception as e:
+        logger.error(f"Error in get_osi_options: {e}")
+        return ["No operating system found"]
+    
 def main():
     analyzer = CompatibilityAnalyzer()
     
